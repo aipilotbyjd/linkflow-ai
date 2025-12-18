@@ -29,7 +29,6 @@ func NewScheduler(service *ScheduleService, logger logger.Logger) *Scheduler {
 	c := cron.New(
 		cron.WithLocation(location),
 		cron.WithSeconds(),
-		cron.WithLogger(cron.VerbosePrintfLogger(logger)),
 	)
 	
 	return &Scheduler{
