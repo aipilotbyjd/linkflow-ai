@@ -66,7 +66,7 @@ func (p *EventPublisher) Publish(ctx context.Context, event *events.Event) error
 
 	// Extract correlation ID from context
 	if correlationID := ctx.Value("correlationID"); correlationID != nil {
-		event.CorrelationID = correlationID.(string)
+		event.Metadata.CorrelationID = correlationID.(string)
 	}
 
 	// Serialize event
@@ -76,7 +76,7 @@ func (p *EventPublisher) Publish(ctx context.Context, event *events.Event) error
 	}
 
 	// Determine topic based on event type
-	topic := p.getTopicForEvent(event.EventType)
+	topic := p.getTopicForEvent(string(event.Type))
 
 	// Create Kafka message
 	message := &sarama.ProducerMessage{
@@ -86,11 +86,11 @@ func (p *EventPublisher) Publish(ctx context.Context, event *events.Event) error
 		Headers: []sarama.RecordHeader{
 			{
 				Key:   []byte("eventType"),
-				Value: []byte(event.EventType),
+				Value: []byte(event.Type),
 			},
 			{
 				Key:   []byte("correlationId"),
-				Value: []byte(event.CorrelationID),
+				Value: []byte(event.Metadata.CorrelationID),
 			},
 			{
 				Key:   []byte("aggregateType"),

@@ -2,7 +2,7 @@
 .PHONY: help dev test build clean docker-up docker-down migrate
 
 # Variables
-SERVICES := auth user workflow execution node webhook schedule notification
+SERVICES := gateway auth user execution workflow node tenant executor webhook schedule credential notification integration analytics search storage config migration backup admin monitoring
 DOCKER_REGISTRY := linkflow
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GOBASE := $(shell pwd)
@@ -139,5 +139,83 @@ clean: ## Clean build artifacts
 	@echo "${YELLOW}Cleaning build artifacts...${NC}"
 	rm -rf bin/ dist/ coverage.* vendor/ *.out
 	@echo "${GREEN}Cleanup completed${NC}"
+
+# Additional targets
+
+build-all: ## Build all 21 services
+	@echo "${GREEN}Building all services...${NC}"
+	@mkdir -p bin
+	@for service in $(SERVICES); do \
+		echo "Building $$service..."; \
+		CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/$$service ./cmd/services/$$service || exit 1; \
+	done
+	@echo "${GREEN}All 21 services built successfully${NC}"
+	@ls -lh bin/
+
+start-all: ## Start all services
+	@./scripts/start-all.sh start
+
+stop-all: ## Stop all services
+	@./scripts/start-all.sh stop
+
+status: ## Show status of all services
+	@./scripts/start-all.sh status
+
+test-unit: ## Run unit tests only
+	@echo "${GREEN}Running unit tests...${NC}"
+	go test -v ./tests/unit/...
+
+test-integration: ## Run integration tests
+	@echo "${GREEN}Running integration tests...${NC}"
+	go test -v -tags=integration ./tests/integration/...
+
+test-e2e: ## Run end-to-end tests
+	@echo "${GREEN}Running E2E tests...${NC}"
+	go test -v -tags=e2e ./tests/e2e/...
+
+test-all: test-unit test-integration test-e2e ## Run all tests
+
+validate: lint test ## Validate code (lint + test)
+
+proto: ## Generate gRPC code from proto files
+	@echo "${GREEN}Generating gRPC code...${NC}"
+	protoc --go_out=. --go-grpc_out=. api/grpc/*.proto
+
+openapi: ## Generate OpenAPI client code
+	@echo "${GREEN}Generating OpenAPI code...${NC}"
+	@for spec in api/openapi/*.yaml; do \
+		echo "Processing $$spec..."; \
+	done
+
+docker-build-all: ## Build all Docker images
+	@echo "${GREEN}Building all Docker images...${NC}"
+	@for service in $(SERVICES); do \
+		echo "Building $$service image..."; \
+		docker build --build-arg SERVICE_NAME=$$service -t linkflow/$$service:$(VERSION) . || exit 1; \
+	done
+
+docker-push: ## Push Docker images to registry
+	@echo "${GREEN}Pushing Docker images...${NC}"
+	@for service in $(SERVICES); do \
+		docker push $(DOCKER_REGISTRY)/$$service:$(VERSION); \
+	done
+
+migrate-all: ## Run all migrations
+	@echo "${GREEN}Running all migrations...${NC}"
+	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" up
+
+migrate-status: ## Show migration status
+	@echo "${GREEN}Migration status:${NC}"
+	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" version
+
+health: ## Check health of all services
+	@echo "${GREEN}Checking service health...${NC}"
+	@for port in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010 8011 8012 8013 8014 8015; do \
+		if curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health/live | grep -q "200"; then \
+			echo "Port $$port: ${GREEN}healthy${NC}"; \
+		else \
+			echo "Port $$port: ${RED}unhealthy${NC}"; \
+		fi; \
+	done
 
 .DEFAULT_GOAL := help

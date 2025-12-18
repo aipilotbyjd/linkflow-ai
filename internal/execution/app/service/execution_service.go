@@ -87,10 +87,9 @@ func (s *ExecutionService) StartExecution(ctx context.Context, cmd StartExecutio
 		event := &events.Event{
 			AggregateID:   execution.ID().String(),
 			AggregateType: "Execution",
-			EventType:     "execution.started",
+			Type:          events.ExecutionStarted,
 			Timestamp:     time.Now(),
 			UserID:        cmd.UserID,
-			Payload:       nil, // TODO: Add payload
 		}
 		if err := s.eventPublisher.Publish(ctx, event); err != nil {
 			s.logger.Error("Failed to publish execution started event", "error", err)
@@ -231,7 +230,7 @@ func (s *ExecutionService) CancelExecution(ctx context.Context, executionID mode
 		event := &events.Event{
 			AggregateID:   execution.ID().String(),
 			AggregateType: "Execution",
-			EventType:     "execution.cancelled",
+			Type:          events.ExecutionCancelled,
 			Timestamp:     time.Now(),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
@@ -346,7 +345,7 @@ func (s *ExecutionService) executeAsync(ctx context.Context, execution *model.Ex
 		event := &events.Event{
 			AggregateID:   execution.ID().String(),
 			AggregateType: "Execution",
-			EventType:     "execution.completed",
+			Type:          events.ExecutionCompleted,
 			Timestamp:     time.Now(),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)

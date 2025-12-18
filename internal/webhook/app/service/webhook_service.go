@@ -100,10 +100,10 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, cmd CreateWebhookCom
 		event := &events.Event{
 			AggregateID:   webhook.ID().String(),
 			AggregateType: "Webhook",
-			EventType:     "webhook.created",
+			Type:          events.WebhookCreated, // created",
 			UserID:        cmd.UserID,
 			Timestamp:     time.Now(),
-			Payload:       json.RawMessage(payload),
+			Data:          json.RawMessage(payload),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
 	}
@@ -184,9 +184,9 @@ func (s *WebhookService) TriggerWebhook(ctx context.Context, webhookID model.Web
 		event := &events.Event{
 			AggregateID:   webhook.ID().String(),
 			AggregateType: "Webhook",
-			EventType:     eventType,
+			Type:          events.EventType(eventType),
 			Timestamp:     time.Now(),
-			Payload:       json.RawMessage(payload),
+			Data:          json.RawMessage(payload),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
 	}

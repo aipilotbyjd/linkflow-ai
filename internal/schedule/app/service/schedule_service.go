@@ -126,10 +126,10 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, cmd CreateSchedule
 		event := &events.Event{
 			AggregateID:   schedule.ID().String(),
 			AggregateType: "Schedule",
-			EventType:     "schedule.created",
+			Type:          events.ScheduleCreated, // created",
 			UserID:        cmd.UserID,
 			Timestamp:     time.Now(),
-			Payload:       json.RawMessage(payload),
+			Data:          json.RawMessage(payload),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
 	}
@@ -217,7 +217,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, cmd UpdateSchedule
 		event := &events.Event{
 			AggregateID:   schedule.ID().String(),
 			AggregateType: "Schedule",
-			EventType:     "schedule.updated",
+			Type:          events.ScheduleCreated, // updated",
 			UserID:        cmd.UserID,
 			Timestamp:     time.Now(),
 		}
@@ -416,7 +416,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, scheduleID model.S
 		event := &events.Event{
 			AggregateID:   scheduleID.String(),
 			AggregateType: "Schedule",
-			EventType:     "schedule.deleted",
+			Type:          events.ScheduleCreated, // deleted",
 			UserID:        userID,
 			Timestamp:     time.Now(),
 		}

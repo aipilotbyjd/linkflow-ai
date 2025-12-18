@@ -182,10 +182,10 @@ func (s *Scheduler) ExecuteSchedule(ctx context.Context, schedule *model.Schedul
 		event := &events.Event{
 			AggregateID:   schedule.WorkflowID(),
 			AggregateType: "Workflow",
-			EventType:     "workflow.execute",
+			Type:          events.ExecutionStarted,
 			UserID:        schedule.UserID(),
 			Timestamp:     time.Now(),
-			Payload:       json.RawMessage(payload),
+			Data:          json.RawMessage(payload),
 		}
 		
 		if err := s.service.eventPublisher.Publish(ctx, event); err != nil {

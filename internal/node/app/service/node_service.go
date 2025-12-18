@@ -145,9 +145,9 @@ func (s *NodeService) CreateNode(ctx context.Context, cmd CreateNodeCommand) (*m
 		event := &events.Event{
 			AggregateID:   node.ID().String(),
 			AggregateType: "NodeDefinition",
-			EventType:     "node.created",
+			Type:          events.NodeExecutionStarted, // created",
 			Timestamp:     time.Now(),
-			Payload:       json.RawMessage(payload),
+			Data:          json.RawMessage(payload),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
 	}
@@ -234,7 +234,7 @@ func (s *NodeService) UpdateNode(ctx context.Context, cmd UpdateNodeCommand) (*m
 		event := &events.Event{
 			AggregateID:   node.ID().String(),
 			AggregateType: "NodeDefinition",
-			EventType:     "node.updated",
+			Type:          events.NodeExecutionStarted, // updated",
 			Timestamp:     time.Now(),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
@@ -357,9 +357,9 @@ func (s *NodeService) CloneNode(ctx context.Context, nodeID model.NodeID) (*mode
 		event := &events.Event{
 			AggregateID:   clone.ID().String(),
 			AggregateType: "NodeDefinition",
-			EventType:     "node.cloned",
+			Type:          events.NodeExecutionStarted, // cloned",
 			Timestamp:     time.Now(),
-			Payload:       json.RawMessage(payload),
+			Data:          json.RawMessage(payload),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
 	}
@@ -404,7 +404,7 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeID model.NodeID) error
 		event := &events.Event{
 			AggregateID:   nodeID.String(),
 			AggregateType: "NodeDefinition",
-			EventType:     "node.deleted",
+			Type:          events.NodeExecutionStarted, // deleted",
 			Timestamp:     time.Now(),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)

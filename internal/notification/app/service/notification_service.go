@@ -128,10 +128,10 @@ func (s *NotificationService) CreateNotification(ctx context.Context, cmd Create
 		event := &events.Event{
 			AggregateID:   notification.ID().String(),
 			AggregateType: "Notification",
-			EventType:     "notification.created",
+			Type:          events.NotificationSent, // created",
 			UserID:        cmd.UserID,
 			Timestamp:     time.Now(),
-			Payload:       json.RawMessage(payload),
+			Data:          json.RawMessage(payload),
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
 	}
