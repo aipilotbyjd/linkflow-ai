@@ -1,0 +1,249 @@
+# Default values for linkflow.
+# This is a YAML-formatted file.
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Common configuration
+common:
+  labels:
+    app.kubernetes.io/name: linkflow
+    app.kubernetes.io/managed-by: Helm
+  
+# Service configurations
+services:
+  gateway:
+    enabled: true
+    name: gateway
+    replicaCount: 3
+    image:
+      repository: linkflow-ai/gateway
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: LoadBalancer
+      port: 80
+      targetPort: 8000
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+
+  auth:
+    enabled: true
+    name: auth
+    replicaCount: 2
+    image:
+      repository: linkflow-ai/auth
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8001
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+  user:
+    enabled: true
+    name: user
+    replicaCount: 2
+    image:
+      repository: linkflow-ai/user
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8002
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+  workflow:
+    enabled: true
+    name: workflow
+    replicaCount: 3
+    image:
+      repository: linkflow-ai/workflow
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8004
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+  execution:
+    enabled: true
+    name: execution
+    replicaCount: 5
+    image:
+      repository: linkflow-ai/execution
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8003
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+      requests:
+        cpu: 1000m
+        memory: 1Gi
+
+# Database configuration
+postgresql:
+  enabled: true
+  auth:
+    username: linkflow
+    password: linkflow123
+    database: linkflow
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: redis123
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 5Gi
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# Kafka configuration
+kafka:
+  enabled: true
+  replicaCount: 3
+  persistence:
+    enabled: true
+    size: 10Gi
+  zookeeper:
+    enabled: true
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 5Gi
+  metrics:
+    kafka:
+      enabled: true
+    jmx:
+      enabled: true
+
+# Elasticsearch configuration
+elasticsearch:
+  enabled: true
+  replicas: 3
+  minimumMasterNodes: 2
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: 1000m
+    limits:
+      memory: 4Gi
+      cpu: 2000m
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: api.linkflow.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: linkflow-tls
+      hosts:
+        - api.linkflow.ai
+
+# Security configuration
+security:
+  podSecurityPolicy:
+    enabled: false
+  networkPolicy:
+    enabled: true
+  serviceAccount:
+    create: true
+    name: linkflow
+
+# Monitoring configuration
+monitoring:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  grafana:
+    enabled: true
+    dashboards:
+      enabled: true
+  jaeger:
+    enabled: true
+    agent:
+      enabled: true
+
+# ConfigMap for environment variables
+env:
+  LOG_LEVEL: info
+  ENVIRONMENT: production
+  JWT_SECRET: "your-secret-key-change-in-production"
+  KAFKA_BROKERS: "kafka:9092"
+  ELASTICSEARCH_URLS: "http://elasticsearch:9200"
+
+# Secrets (should be managed by external secret management)
+secrets:
+  create: true
+  jwt:
+    secret: "your-jwt-secret"
+  database:
+    password: "linkflow123"
+  redis:
+    password: "redis123"

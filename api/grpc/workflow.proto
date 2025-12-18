@@ -1,0 +1,253 @@
+syntax = "proto3";
+
+package linkflow.workflow.v1;
+
+option go_package = "github.com/linkflow-ai/linkflow-ai/api/grpc/workflow/v1;workflowpb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+// WorkflowService provides workflow management operations
+service WorkflowService {
+  // Create a new workflow
+  rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse);
+  
+  // Get workflow by ID
+  rpc GetWorkflow(GetWorkflowRequest) returns (GetWorkflowResponse);
+  
+  // List workflows
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  
+  // Update workflow
+  rpc UpdateWorkflow(UpdateWorkflowRequest) returns (UpdateWorkflowResponse);
+  
+  // Delete workflow
+  rpc DeleteWorkflow(DeleteWorkflowRequest) returns (google.protobuf.Empty);
+  
+  // Activate workflow
+  rpc ActivateWorkflow(ActivateWorkflowRequest) returns (ActivateWorkflowResponse);
+  
+  // Deactivate workflow
+  rpc DeactivateWorkflow(DeactivateWorkflowRequest) returns (DeactivateWorkflowResponse);
+  
+  // Execute workflow
+  rpc ExecuteWorkflow(ExecuteWorkflowRequest) returns (ExecuteWorkflowResponse);
+  
+  // Stream workflow execution events
+  rpc StreamExecutionEvents(StreamExecutionEventsRequest) returns (stream ExecutionEvent);
+}
+
+// Workflow message
+message Workflow {
+  string id = 1;
+  string user_id = 2;
+  string organization_id = 3;
+  string name = 4;
+  string description = 5;
+  WorkflowStatus status = 6;
+  int32 version = 7;
+  repeated Node nodes = 8;
+  repeated Connection connections = 9;
+  WorkflowSettings settings = 10;
+  repeated string tags = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// Node message
+message Node {
+  string id = 1;
+  string type = 2;
+  string name = 3;
+  string description = 4;
+  google.protobuf.Struct config = 5;
+  Position position = 6;
+}
+
+// Position message
+message Position {
+  double x = 1;
+  double y = 2;
+}
+
+// Connection message
+message Connection {
+  string id = 1;
+  string source_node_id = 2;
+  string target_node_id = 3;
+  string source_port = 4;
+  string target_port = 5;
+}
+
+// WorkflowSettings message
+message WorkflowSettings {
+  int32 max_execution_time = 1;
+  RetryPolicy retry_policy = 2;
+  string error_handling = 3;
+  google.protobuf.Struct metadata = 4;
+}
+
+// RetryPolicy message
+message RetryPolicy {
+  int32 max_attempts = 1;
+  string backoff_type = 2;
+  int32 delay_seconds = 3;
+}
+
+// WorkflowStatus enum
+enum WorkflowStatus {
+  WORKFLOW_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_STATUS_DRAFT = 1;
+  WORKFLOW_STATUS_ACTIVE = 2;
+  WORKFLOW_STATUS_INACTIVE = 3;
+  WORKFLOW_STATUS_ARCHIVED = 4;
+}
+
+// CreateWorkflowRequest message
+message CreateWorkflowRequest {
+  string name = 1;
+  string description = 2;
+  string organization_id = 3;
+  repeated Node nodes = 4;
+  repeated Connection connections = 5;
+  WorkflowSettings settings = 6;
+  repeated string tags = 7;
+}
+
+// CreateWorkflowResponse message
+message CreateWorkflowResponse {
+  Workflow workflow = 1;
+}
+
+// GetWorkflowRequest message
+message GetWorkflowRequest {
+  string id = 1;
+}
+
+// GetWorkflowResponse message
+message GetWorkflowResponse {
+  Workflow workflow = 1;
+}
+
+// ListWorkflowsRequest message
+message ListWorkflowsRequest {
+  string user_id = 1;
+  string organization_id = 2;
+  WorkflowStatus status = 3;
+  repeated string tags = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+  string sort_by = 7;
+  string sort_order = 8;
+}
+
+// ListWorkflowsResponse message
+message ListWorkflowsResponse {
+  repeated Workflow workflows = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// UpdateWorkflowRequest message
+message UpdateWorkflowRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated Node nodes = 4;
+  repeated Connection connections = 5;
+  WorkflowSettings settings = 6;
+  repeated string tags = 7;
+}
+
+// UpdateWorkflowResponse message
+message UpdateWorkflowResponse {
+  Workflow workflow = 1;
+}
+
+// DeleteWorkflowRequest message
+message DeleteWorkflowRequest {
+  string id = 1;
+}
+
+// ActivateWorkflowRequest message
+message ActivateWorkflowRequest {
+  string id = 1;
+}
+
+// ActivateWorkflowResponse message
+message ActivateWorkflowResponse {
+  Workflow workflow = 1;
+}
+
+// DeactivateWorkflowRequest message
+message DeactivateWorkflowRequest {
+  string id = 1;
+}
+
+// DeactivateWorkflowResponse message
+message DeactivateWorkflowResponse {
+  Workflow workflow = 1;
+}
+
+// ExecuteWorkflowRequest message
+message ExecuteWorkflowRequest {
+  string workflow_id = 1;
+  google.protobuf.Struct input = 2;
+  map<string, string> context = 3;
+  bool async = 4;
+}
+
+// ExecuteWorkflowResponse message
+message ExecuteWorkflowResponse {
+  string execution_id = 1;
+  ExecutionStatus status = 2;
+  google.protobuf.Struct output = 3;
+  repeated ExecutionError errors = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+}
+
+// StreamExecutionEventsRequest message
+message StreamExecutionEventsRequest {
+  string execution_id = 1;
+}
+
+// ExecutionEvent message
+message ExecutionEvent {
+  string execution_id = 1;
+  string node_id = 2;
+  EventType type = 3;
+  google.protobuf.Struct data = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// EventType enum
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_NODE_STARTED = 1;
+  EVENT_TYPE_NODE_COMPLETED = 2;
+  EVENT_TYPE_NODE_FAILED = 3;
+  EVENT_TYPE_NODE_SKIPPED = 4;
+  EVENT_TYPE_EXECUTION_COMPLETED = 5;
+  EVENT_TYPE_EXECUTION_FAILED = 6;
+}
+
+// ExecutionStatus enum
+enum ExecutionStatus {
+  EXECUTION_STATUS_UNSPECIFIED = 0;
+  EXECUTION_STATUS_PENDING = 1;
+  EXECUTION_STATUS_RUNNING = 2;
+  EXECUTION_STATUS_COMPLETED = 3;
+  EXECUTION_STATUS_FAILED = 4;
+  EXECUTION_STATUS_CANCELLED = 5;
+}
+
+// ExecutionError message
+message ExecutionError {
+  string node_id = 1;
+  string code = 2;
+  string message = 3;
+  google.protobuf.Struct details = 4;
+}
