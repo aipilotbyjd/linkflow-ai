@@ -1,0 +1,379 @@
+openapi: 3.0.3
+info:
+  title: LinkFlow Node Service API
+  version: 1.0.0
+  description: Node registry, custom nodes, and marketplace
+
+servers:
+  - url: http://localhost:8005/api/v1
+
+paths:
+  /nodes:
+    get:
+      summary: List available nodes
+      tags: [Nodes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [trigger, action, condition, transform, integration]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: List of nodes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Node'
+
+  /nodes/{id}:
+    get:
+      summary: Get node by ID
+      tags: [Nodes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDetail'
+
+  /nodes/custom:
+    get:
+      summary: List custom nodes
+      tags: [Custom Nodes]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Custom nodes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomNode'
+
+    post:
+      summary: Create custom node
+      tags: [Custom Nodes]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomNodeRequest'
+      responses:
+        '201':
+          description: Custom node created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomNode'
+
+  /nodes/custom/{id}:
+    put:
+      summary: Update custom node
+      tags: [Custom Nodes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomNodeRequest'
+      responses:
+        '200':
+          description: Custom node updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomNode'
+
+    delete:
+      summary: Delete custom node
+      tags: [Custom Nodes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Custom node deleted
+
+  /nodes/marketplace:
+    get:
+      summary: Browse node marketplace
+      tags: [Marketplace]
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [popular, recent, rating]
+        - name: page
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Marketplace nodes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketplaceList'
+
+  /nodes/marketplace/{id}/install:
+    post:
+      summary: Install marketplace node
+      tags: [Marketplace]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Node installed
+
+  /nodes/categories:
+    get:
+      summary: Get node categories
+      tags: [Nodes]
+      responses:
+        '200':
+          description: Node categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeCategory'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [trigger, action, condition, transform, integration]
+        icon:
+          type: string
+        color:
+          type: string
+        version:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    NodeDetail:
+      allOf:
+        - $ref: '#/components/schemas/Node'
+        - type: object
+          properties:
+            inputs:
+              type: array
+              items:
+                $ref: '#/components/schemas/NodeParameter'
+            outputs:
+              type: array
+              items:
+                $ref: '#/components/schemas/NodeParameter'
+            documentation:
+              type: string
+            examples:
+              type: array
+              items:
+                type: object
+
+    NodeParameter:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [string, number, boolean, object, array, date, file]
+        required:
+          type: boolean
+        default:
+          type: object
+        description:
+          type: string
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              value:
+                type: object
+
+    CustomNode:
+      allOf:
+        - $ref: '#/components/schemas/Node'
+        - type: object
+          properties:
+            code:
+              type: string
+            runtime:
+              type: string
+              enum: [javascript, python]
+            createdBy:
+              type: string
+              format: uuid
+            isPublic:
+              type: boolean
+            createdAt:
+              type: string
+              format: date-time
+
+    CreateCustomNodeRequest:
+      type: object
+      required:
+        - name
+        - code
+        - runtime
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        icon:
+          type: string
+        code:
+          type: string
+        runtime:
+          type: string
+          enum: [javascript, python]
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeParameter'
+        outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeParameter'
+        isPublic:
+          type: boolean
+          default: false
+
+    UpdateCustomNodeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        code:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeParameter'
+        outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeParameter'
+        isPublic:
+          type: boolean
+
+    NodeCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        nodeCount:
+          type: integer
+
+    MarketplaceList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Node'
+              - type: object
+                properties:
+                  author:
+                    type: string
+                  downloads:
+                    type: integer
+                  rating:
+                    type: number
+                  reviews:
+                    type: integer
+        total:
+          type: integer
+        page:
+          type: integer

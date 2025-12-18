@@ -1,0 +1,176 @@
+{
+  "workflows": [
+    {
+      "id": "wf-001-test-basic",
+      "name": "Basic HTTP Workflow",
+      "description": "Simple HTTP request workflow for testing",
+      "status": "active",
+      "nodes": [
+        {
+          "id": "node-trigger-1",
+          "type": "trigger",
+          "name": "HTTP Trigger",
+          "position": {"x": 100, "y": 100},
+          "config": {
+            "method": "POST",
+            "path": "/webhook/test"
+          }
+        },
+        {
+          "id": "node-action-1",
+          "type": "action",
+          "name": "HTTP Request",
+          "position": {"x": 300, "y": 100},
+          "config": {
+            "url": "https://api.example.com/data",
+            "method": "GET"
+          }
+        },
+        {
+          "id": "node-action-2",
+          "type": "action",
+          "name": "Send Email",
+          "position": {"x": 500, "y": 100},
+          "config": {
+            "to": "{{input.email}}",
+            "subject": "Workflow Result",
+            "body": "Data: {{node-action-1.response}}"
+          }
+        }
+      ],
+      "connections": [
+        {"source": "node-trigger-1", "target": "node-action-1"},
+        {"source": "node-action-1", "target": "node-action-2"}
+      ]
+    },
+    {
+      "id": "wf-002-test-conditional",
+      "name": "Conditional Workflow",
+      "description": "Workflow with branching logic",
+      "status": "active",
+      "nodes": [
+        {
+          "id": "node-trigger-1",
+          "type": "trigger",
+          "name": "Schedule Trigger",
+          "config": {
+            "cron": "0 9 * * *",
+            "timezone": "UTC"
+          }
+        },
+        {
+          "id": "node-condition-1",
+          "type": "condition",
+          "name": "Check Status",
+          "config": {
+            "conditions": [
+              {"field": "status", "operator": "equals", "value": "success"}
+            ]
+          }
+        },
+        {
+          "id": "node-action-success",
+          "type": "action",
+          "name": "Success Handler"
+        },
+        {
+          "id": "node-action-failure",
+          "type": "action",
+          "name": "Failure Handler"
+        }
+      ],
+      "connections": [
+        {"source": "node-trigger-1", "target": "node-condition-1"},
+        {"source": "node-condition-1", "target": "node-action-success", "label": "true"},
+        {"source": "node-condition-1", "target": "node-action-failure", "label": "false"}
+      ]
+    },
+    {
+      "id": "wf-003-test-loop",
+      "name": "Loop Workflow",
+      "description": "Workflow with iteration",
+      "status": "draft",
+      "nodes": [
+        {
+          "id": "node-trigger-1",
+          "type": "trigger",
+          "name": "Manual Trigger"
+        },
+        {
+          "id": "node-loop-1",
+          "type": "loop",
+          "name": "Process Items",
+          "config": {
+            "source": "{{input.items}}",
+            "maxIterations": 100
+          }
+        },
+        {
+          "id": "node-action-1",
+          "type": "action",
+          "name": "Process Item"
+        }
+      ],
+      "connections": [
+        {"source": "node-trigger-1", "target": "node-loop-1"},
+        {"source": "node-loop-1", "target": "node-action-1"}
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "user-001-test",
+      "email": "test@linkflow.ai",
+      "name": "Test User",
+      "role": "admin"
+    },
+    {
+      "id": "user-002-viewer",
+      "email": "viewer@linkflow.ai",
+      "name": "Viewer User",
+      "role": "viewer"
+    }
+  ],
+  "executions": [
+    {
+      "id": "exec-001",
+      "workflowId": "wf-001-test-basic",
+      "status": "completed",
+      "startedAt": "2024-01-15T10:00:00Z",
+      "completedAt": "2024-01-15T10:00:05Z",
+      "duration": 5000
+    },
+    {
+      "id": "exec-002",
+      "workflowId": "wf-001-test-basic",
+      "status": "failed",
+      "startedAt": "2024-01-15T11:00:00Z",
+      "completedAt": "2024-01-15T11:00:03Z",
+      "error": "HTTP request failed: 500 Internal Server Error"
+    }
+  ],
+  "schedules": [
+    {
+      "id": "sched-001",
+      "name": "Daily Report",
+      "workflowId": "wf-002-test-conditional",
+      "cronExpression": "0 9 * * *",
+      "timezone": "America/New_York",
+      "status": "active"
+    }
+  ],
+  "credentials": [
+    {
+      "id": "cred-001",
+      "name": "GitHub API",
+      "type": "api_key",
+      "service": "github"
+    },
+    {
+      "id": "cred-002",
+      "name": "Slack Webhook",
+      "type": "oauth2",
+      "service": "slack"
+    }
+  ]
+}

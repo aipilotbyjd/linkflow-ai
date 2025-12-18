@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: LinkFlow Execution Service API
+  version: 1.0.0
+  description: Workflow execution orchestration and state management
+
+servers:
+  - url: http://localhost:8003/api/v1
+
+paths:
+  /executions:
+    get:
+      summary: List executions
+      tags: [Executions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workflowId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, completed, failed, cancelled]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionList'
+
+    post:
+      summary: Start new execution
+      tags: [Executions]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartExecutionRequest'
+      responses:
+        '201':
+          description: Execution started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+
+  /executions/{id}:
+    get:
+      summary: Get execution by ID
+      tags: [Executions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Execution details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionDetail'
+
+  /executions/{id}/cancel:
+    post:
+      summary: Cancel execution
+      tags: [Executions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Execution cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+
+  /executions/{id}/retry:
+    post:
+      summary: Retry failed execution
+      tags: [Executions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fromNodeId:
+                  type: string
+                  description: Node to retry from
+      responses:
+        '201':
+          description: Retry started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+
+  /executions/{id}/nodes:
+    get:
+      summary: Get node execution details
+      tags: [Executions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Node execution details
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeExecution'
+
+  /executions/{id}/logs:
+    get:
+      summary: Get execution logs
+      tags: [Executions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: nodeId
+          in: query
+          schema:
+            type: string
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [debug, info, warn, error]
+      responses:
+        '200':
+          description: Execution logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutionLog'
+
+  /executions/stats:
+    get:
+      summary: Get execution statistics
+      tags: [Statistics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workflowId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Execution statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionStats'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Execution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflowId:
+          type: string
+          format: uuid
+        workflowVersion:
+          type: integer
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        triggerType:
+          type: string
+          enum: [manual, schedule, webhook, api]
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+          description: Duration in milliseconds
+        error:
+          type: string
+        createdBy:
+          type: string
+          format: uuid
+
+    ExecutionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Execution'
+        - type: object
+          properties:
+            inputData:
+              type: object
+            outputData:
+              type: object
+            nodeExecutions:
+              type: array
+              items:
+                $ref: '#/components/schemas/NodeExecution'
+            metadata:
+              type: object
+
+    ExecutionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Execution'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    StartExecutionRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+          format: uuid
+        inputData:
+          type: object
+        priority:
+          type: string
+          enum: [low, normal, high]
+          default: normal
+
+    NodeExecution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nodeId:
+          type: string
+        nodeName:
+          type: string
+        nodeType:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed, skipped]
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        inputData:
+          type: object
+        outputData:
+          type: object
+        error:
+          type: string
+        retryCount:
+          type: integer
+
+    ExecutionLog:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+        nodeId:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+
+    ExecutionStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        successful:
+          type: integer
+        failed:
+          type: integer
+        cancelled:
+          type: integer
+        avgDuration:
+          type: number
+        successRate:
+          type: number
+        timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              count:
+                type: integer
+              successful:
+                type: integer
+              failed:
+                type: integer

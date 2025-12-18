@@ -1,0 +1,393 @@
+openapi: 3.0.3
+info:
+  title: LinkFlow Schedule Service API
+  version: 1.0.0
+  description: Cron job management and scheduling
+
+servers:
+  - url: http://localhost:8009/api/v1
+
+paths:
+  /schedules:
+    get:
+      summary: List schedules
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workflowId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, paused, disabled]
+      responses:
+        '200':
+          description: List of schedules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+
+    post:
+      summary: Create schedule
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+      responses:
+        '201':
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+
+  /schedules/{id}:
+    get:
+      summary: Get schedule by ID
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Schedule details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleDetail'
+
+    put:
+      summary: Update schedule
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleRequest'
+      responses:
+        '200':
+          description: Schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+
+    delete:
+      summary: Delete schedule
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Schedule deleted
+
+  /schedules/{id}/pause:
+    post:
+      summary: Pause schedule
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Schedule paused
+
+  /schedules/{id}/resume:
+    post:
+      summary: Resume schedule
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Schedule resumed
+
+  /schedules/{id}/trigger:
+    post:
+      summary: Trigger schedule manually
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Schedule triggered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executionId:
+                    type: string
+                    format: uuid
+
+  /schedules/{id}/history:
+    get:
+      summary: Get schedule execution history
+      tags: [Schedules]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Execution history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleExecution'
+
+  /schedules/validate:
+    post:
+      summary: Validate cron expression
+      tags: [Schedules]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cronExpression
+              properties:
+                cronExpression:
+                  type: string
+                timezone:
+                  type: string
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  nextRuns:
+                    type: array
+                    items:
+                      type: string
+                      format: date-time
+                  error:
+                    type: string
+
+  /timezones:
+    get:
+      summary: List supported timezones
+      tags: [Schedules]
+      responses:
+        '200':
+          description: List of timezones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    offset:
+                      type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        workflowId:
+          type: string
+          format: uuid
+        cronExpression:
+          type: string
+        timezone:
+          type: string
+        status:
+          type: string
+          enum: [active, paused, disabled]
+        nextRunAt:
+          type: string
+          format: date-time
+        lastRunAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ScheduleDetail:
+      allOf:
+        - $ref: '#/components/schemas/Schedule'
+        - type: object
+          properties:
+            inputData:
+              type: object
+            retryPolicy:
+              $ref: '#/components/schemas/RetryPolicy'
+            notifyOnFailure:
+              type: boolean
+            executionCount:
+              type: integer
+            successCount:
+              type: integer
+            failureCount:
+              type: integer
+
+    CreateScheduleRequest:
+      type: object
+      required:
+        - name
+        - workflowId
+        - cronExpression
+      properties:
+        name:
+          type: string
+        workflowId:
+          type: string
+          format: uuid
+        cronExpression:
+          type: string
+        timezone:
+          type: string
+          default: UTC
+        inputData:
+          type: object
+        retryPolicy:
+          $ref: '#/components/schemas/RetryPolicy'
+        notifyOnFailure:
+          type: boolean
+          default: true
+
+    UpdateScheduleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        cronExpression:
+          type: string
+        timezone:
+          type: string
+        inputData:
+          type: object
+        retryPolicy:
+          $ref: '#/components/schemas/RetryPolicy'
+        notifyOnFailure:
+          type: boolean
+
+    RetryPolicy:
+      type: object
+      properties:
+        maxRetries:
+          type: integer
+          default: 3
+        retryDelay:
+          type: integer
+          description: Delay in seconds
+          default: 60
+        backoffMultiplier:
+          type: number
+          default: 2
+
+    ScheduleExecution:
+      type: object
+      properties:
+        executionId:
+          type: string
+          format: uuid
+        scheduledAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [completed, failed, cancelled]
+        duration:
+          type: integer
+        error:
+          type: string

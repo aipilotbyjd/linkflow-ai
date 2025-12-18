@@ -1,0 +1,29 @@
+# docker-compose.override.yml - Local development overrides
+# This file is automatically loaded by docker-compose
+
+services:
+  # Use development Dockerfile with hot reload
+  gateway:
+    build:
+      dockerfile: deployments/docker/Dockerfile.dev
+    volumes:
+      - .:/app
+    command: air -c .air.toml
+
+  auth:
+    build:
+      dockerfile: deployments/docker/Dockerfile.dev
+    volumes:
+      - .:/app
+
+  workflow:
+    build:
+      dockerfile: deployments/docker/Dockerfile.dev
+    volumes:
+      - .:/app
+
+  execution:
+    build:
+      dockerfile: deployments/docker/Dockerfile.dev
+    volumes:
+      - .:/app

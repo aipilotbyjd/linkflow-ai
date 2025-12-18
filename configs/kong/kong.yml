@@ -1,0 +1,242 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  # Auth Service
+  - name: auth-service
+    url: http://auth:8001
+    routes:
+      - name: auth-routes
+        paths:
+          - /api/v1/auth
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+
+  # User Service
+  - name: user-service
+    url: http://user:8002
+    routes:
+      - name: user-routes
+        paths:
+          - /api/v1/users
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 200
+          policy: local
+
+  # Workflow Service
+  - name: workflow-service
+    url: http://workflow:8004
+    routes:
+      - name: workflow-routes
+        paths:
+          - /api/v1/workflows
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 500
+          policy: local
+
+  # Execution Service
+  - name: execution-service
+    url: http://execution:8003
+    routes:
+      - name: execution-routes
+        paths:
+          - /api/v1/executions
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 1000
+          policy: local
+
+  # Node Service
+  - name: node-service
+    url: http://node:8005
+    routes:
+      - name: node-routes
+        paths:
+          - /api/v1/nodes
+        strip_path: false
+    plugins:
+      - name: jwt
+
+  # Schedule Service
+  - name: schedule-service
+    url: http://schedule:8009
+    routes:
+      - name: schedule-routes
+        paths:
+          - /api/v1/schedules
+        strip_path: false
+    plugins:
+      - name: jwt
+
+  # Webhook Service
+  - name: webhook-service
+    url: http://webhook:8008
+    routes:
+      - name: webhook-routes
+        paths:
+          - /api/v1/webhooks
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Notification Service
+  - name: notification-service
+    url: http://notification:8011
+    routes:
+      - name: notification-routes
+        paths:
+          - /api/v1/notifications
+        strip_path: false
+    plugins:
+      - name: jwt
+
+  # Analytics Service
+  - name: analytics-service
+    url: http://analytics:8013
+    routes:
+      - name: analytics-routes
+        paths:
+          - /api/v1/analytics
+        strip_path: false
+    plugins:
+      - name: jwt
+
+  # Search Service
+  - name: search-service
+    url: http://search:8014
+    routes:
+      - name: search-routes
+        paths:
+          - /api/v1/search
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 300
+          policy: local
+
+  # Storage Service
+  - name: storage-service
+    url: http://storage:8015
+    routes:
+      - name: storage-routes
+        paths:
+          - /api/v1/storage
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 100
+
+  # Credential Service
+  - name: credential-service
+    url: http://credential:8010
+    routes:
+      - name: credential-routes
+        paths:
+          - /api/v1/credentials
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 50
+          policy: local
+
+  # Tenant Service
+  - name: tenant-service
+    url: http://tenant:8006
+    routes:
+      - name: tenant-routes
+        paths:
+          - /api/v1/tenants
+        strip_path: false
+    plugins:
+      - name: jwt
+
+  # Admin Service
+  - name: admin-service
+    url: http://admin:8017
+    routes:
+      - name: admin-routes
+        paths:
+          - /api/v1/admin
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: ip-restriction
+        config:
+          allow:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+
+  # Health Check (no auth)
+  - name: health-service
+    url: http://gateway:8000
+    routes:
+      - name: health-routes
+        paths:
+          - /health
+        strip_path: false
+
+plugins:
+  # Global CORS
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Request-ID
+        - X-Correlation-ID
+      exposed_headers:
+        - X-Request-ID
+        - X-Correlation-ID
+      credentials: true
+      max_age: 3600
+
+  # Global request transformer
+  - name: request-transformer
+    config:
+      add:
+        headers:
+          - X-Gateway-Version:1.0.0
+
+consumers:
+  - username: linkflow-internal
+    custom_id: internal-service
+
+jwt_secrets:
+  - consumer: linkflow-internal
+    key: linkflow-jwt-key
+    algorithm: RS256
