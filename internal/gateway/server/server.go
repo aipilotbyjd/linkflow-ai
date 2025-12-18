@@ -53,7 +53,7 @@ func New(opts ...Option) (*Server, error) {
 }
 
 func (s *Server) initialize() error {
-	// Initialize service proxies
+	// Initialize service proxies - ALL 18 SERVICES
 	services := map[string]string{
 		"auth":         "http://localhost:8001",
 		"user":         "http://localhost:8002",
@@ -65,6 +65,13 @@ func (s *Server) initialize() error {
 		"notification": "http://localhost:8008",
 		"analytics":    "http://localhost:8009",
 		"search":       "http://localhost:8010",
+		"storage":      "http://localhost:8011",
+		"integration":  "http://localhost:8012",
+		"monitoring":   "http://localhost:8013",
+		"config":       "http://localhost:8014",
+		"migration":    "http://localhost:8015",
+		"backup":       "http://localhost:8016",
+		"admin":        "http://localhost:8017",
 	}
 
 	for name, addr := range services {
@@ -94,7 +101,7 @@ func (s *Server) setupHTTPServer() {
 	// Gateway info
 	router.HandleFunc("/gateway/info", handlers.GatewayInfo).Methods("GET")
 	
-	// Service routes with path-based routing
+	// Service routes with path-based routing - ALL 18 SERVICES
 	router.PathPrefix("/api/v1/auth").Handler(s.proxies["auth"])
 	router.PathPrefix("/api/v1/users").Handler(s.proxies["user"])
 	router.PathPrefix("/api/v1/workflows").Handler(s.proxies["workflow"])
@@ -105,6 +112,13 @@ func (s *Server) setupHTTPServer() {
 	router.PathPrefix("/api/v1/notifications").Handler(s.proxies["notification"])
 	router.PathPrefix("/api/v1/analytics").Handler(s.proxies["analytics"])
 	router.PathPrefix("/api/v1/search").Handler(s.proxies["search"])
+	router.PathPrefix("/api/v1/files").Handler(s.proxies["storage"])
+	router.PathPrefix("/api/v1/integrations").Handler(s.proxies["integration"])
+	router.PathPrefix("/api/v1/metrics").Handler(s.proxies["monitoring"])
+	router.PathPrefix("/api/v1/configs").Handler(s.proxies["config"])
+	router.PathPrefix("/api/v1/migrations").Handler(s.proxies["migration"])
+	router.PathPrefix("/api/v1/backups").Handler(s.proxies["backup"])
+	router.PathPrefix("/api/v1/admin").Handler(s.proxies["admin"])
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.HTTP.Port),
