@@ -8,6 +8,60 @@ import (
 	"github.com/google/uuid"
 )
 
+// WorkerStatus represents the status of a worker
+type WorkerStatus string
+
+const (
+	WorkerStatusIdle    WorkerStatus = "idle"
+	WorkerStatusBusy    WorkerStatus = "busy"
+	WorkerStatusOffline WorkerStatus = "offline"
+)
+
+// Worker represents an execution worker
+type Worker struct {
+	ID            string
+	Name          string
+	Host          string
+	Port          int
+	Status        WorkerStatus
+	Capacity      int
+	CurrentLoad   int
+	Tags          []string
+	LastHeartbeat time.Time
+	RegisteredAt  time.Time
+}
+
+// TaskStatus represents the status of a task
+type TaskStatus string
+
+const (
+	TaskStatusPending   TaskStatus = "pending"
+	TaskStatusRunning   TaskStatus = "running"
+	TaskStatusCompleted TaskStatus = "completed"
+	TaskStatusFailed    TaskStatus = "failed"
+	TaskStatusCancelled TaskStatus = "cancelled"
+)
+
+// Task represents an execution task
+type Task struct {
+	ID          string
+	ExecutionID string
+	NodeID      string
+	WorkerID    string
+	Type        string
+	Status      TaskStatus
+	Priority    int
+	Input       map[string]interface{}
+	Output      map[string]interface{}
+	Error       string
+	Tags        []string
+	Retries     int
+	MaxRetries  int
+	CreatedAt   time.Time
+	StartedAt   *time.Time
+	CompletedAt *time.Time
+}
+
 // ExecutionEnvironment represents the sandbox environment type
 type ExecutionEnvironment string
 
