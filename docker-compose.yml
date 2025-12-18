@@ -1,7 +1,19 @@
 version: '3.8'
 
+x-service-defaults: &service-defaults
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file:
+    - .env.example
+  networks:
+    - linkflow-network
+  restart: unless-stopped
+
 services:
-  # Infrastructure Services
+  # ============================================
+  # INFRASTRUCTURE SERVICES
+  # ============================================
   postgres:
     image: postgres:15-alpine
     container_name: linkflow-postgres
@@ -186,7 +198,375 @@ volumes:
   prometheus_data:
   grafana_data:
 
+  # ============================================
+  # LINKFLOW MICROSERVICES (21 Services)
+  # ============================================
+  
+  # API Gateway - Port 8000
+  gateway:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: gateway
+    container_name: linkflow-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - HTTP_PORT=8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Auth Service - Port 8001
+  auth:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: auth
+    container_name: linkflow-auth
+    ports:
+      - "8001:8001"
+    environment:
+      - HTTP_PORT=8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # User Service - Port 8002
+  user:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: user
+    container_name: linkflow-user
+    ports:
+      - "8002:8002"
+    environment:
+      - HTTP_PORT=8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Execution Service - Port 8003
+  execution:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: execution
+    container_name: linkflow-execution
+    ports:
+      - "8003:8003"
+    environment:
+      - HTTP_PORT=8003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  # Workflow Service - Port 8004
+  workflow:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: workflow
+    container_name: linkflow-workflow
+    ports:
+      - "8004:8004"
+    environment:
+      - HTTP_PORT=8004
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  # Node Service - Port 8005
+  node:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: node
+    container_name: linkflow-node
+    ports:
+      - "8005:8005"
+    environment:
+      - HTTP_PORT=8005
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Schedule Service - Port 8006
+  schedule:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: schedule
+    container_name: linkflow-schedule
+    ports:
+      - "8006:8006"
+    environment:
+      - HTTP_PORT=8006
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Webhook Service - Port 8007
+  webhook:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: webhook
+    container_name: linkflow-webhook
+    ports:
+      - "8007:8007"
+    environment:
+      - HTTP_PORT=8007
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Notification Service - Port 8008
+  notification:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: notification
+    container_name: linkflow-notification
+    ports:
+      - "8008:8008"
+    environment:
+      - HTTP_PORT=8008
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  # Analytics Service - Port 8009
+  analytics:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: analytics
+    container_name: linkflow-analytics
+    ports:
+      - "8009:8009"
+    environment:
+      - HTTP_PORT=8009
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Search Service - Port 8010
+  search:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: search
+    container_name: linkflow-search
+    ports:
+      - "8010:8010"
+    environment:
+      - HTTP_PORT=8010
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  # Storage Service - Port 8011
+  storage:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: storage
+    container_name: linkflow-storage
+    ports:
+      - "8011:8011"
+    environment:
+      - HTTP_PORT=8011
+    volumes:
+      - storage_data:/app/storage
+
+  # Integration Service - Port 8012
+  integration:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: integration
+    container_name: linkflow-integration
+    ports:
+      - "8012:8012"
+    environment:
+      - HTTP_PORT=8012
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Monitoring Service - Port 8013
+  monitoring:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: monitoring
+    container_name: linkflow-monitoring
+    ports:
+      - "8013:8013"
+    environment:
+      - HTTP_PORT=8013
+
+  # Config Service - Port 8014
+  config:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: config
+    container_name: linkflow-config
+    ports:
+      - "8014:8014"
+    environment:
+      - HTTP_PORT=8014
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Migration Service - Port 8015
+  migration:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: migration
+    container_name: linkflow-migration
+    ports:
+      - "8015:8015"
+    environment:
+      - HTTP_PORT=8015
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Backup Service - Port 8016
+  backup:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: backup
+    container_name: linkflow-backup
+    ports:
+      - "8016:8016"
+    environment:
+      - HTTP_PORT=8016
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backup_data:/app/backups
+
+  # Admin Service - Port 8017
+  admin:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: admin
+    container_name: linkflow-admin
+    ports:
+      - "8017:8017"
+    environment:
+      - HTTP_PORT=8017
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Credential Service - Port 8018
+  credential:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: credential
+    container_name: linkflow-credential
+    ports:
+      - "8018:8018"
+    environment:
+      - HTTP_PORT=8018
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Tenant Service - Port 8019
+  tenant:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: tenant
+    container_name: linkflow-tenant
+    ports:
+      - "8019:8019"
+    environment:
+      - HTTP_PORT=8019
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Executor Service - Port 8020
+  executor:
+    <<: *service-defaults
+    build:
+      context: .
+      args:
+        SERVICE_NAME: executor
+    container_name: linkflow-executor
+    ports:
+      - "8020:8020"
+    environment:
+      - HTTP_PORT=8020
+    deploy:
+      replicas: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  zookeeper_data:
+  zookeeper_logs:
+  elasticsearch_data:
+  prometheus_data:
+  grafana_data:
+  storage_data:
+  backup_data:
+
 networks:
-  default:
-    name: linkflow-network
+  linkflow-network:
     driver: bridge

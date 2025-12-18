@@ -1,0 +1,226 @@
+# LinkFlow AI - Istio Traffic Management
+# Circuit Breaker configuration
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: circuit-breaker-global
+  namespace: linkflow
+spec:
+  host: "*.linkflow.svc.cluster.local"
+  trafficPolicy:
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 5s
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+---
+# Retry Policy
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: retry-policy
+  namespace: linkflow
+spec:
+  hosts:
+    - "*.linkflow.svc.cluster.local"
+  http:
+    - route:
+        - destination:
+            host: "*.linkflow.svc.cluster.local"
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: gateway-error,connect-failure,refused-stream,unavailable,cancelled,retriable-4xx
+        retryRemoteLocalities: true
+      timeout: 30s
+---
+# Canary Deployment - Workflow Service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: workflow-canary
+  namespace: linkflow
+spec:
+  hosts:
+    - workflow-service
+  http:
+    - match:
+        - headers:
+            x-canary:
+              exact: "true"
+      route:
+        - destination:
+            host: workflow-service
+            subset: canary
+    - route:
+        - destination:
+            host: workflow-service
+            subset: stable
+          weight: 95
+        - destination:
+            host: workflow-service
+            subset: canary
+          weight: 5
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: workflow-service-subsets
+  namespace: linkflow
+spec:
+  host: workflow-service
+  subsets:
+    - name: stable
+      labels:
+        version: stable
+    - name: canary
+      labels:
+        version: canary
+---
+# A/B Testing - Feature Flags
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ab-testing
+  namespace: linkflow
+spec:
+  hosts:
+    - gateway-service
+  http:
+    - match:
+        - headers:
+            x-experiment:
+              exact: "new-ui"
+      route:
+        - destination:
+            host: gateway-service
+            subset: experiment
+    - route:
+        - destination:
+            host: gateway-service
+            subset: control
+---
+# Traffic Mirroring for Testing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: traffic-mirror
+  namespace: linkflow
+spec:
+  hosts:
+    - workflow-service
+  http:
+    - route:
+        - destination:
+            host: workflow-service
+            subset: stable
+      mirror:
+        host: workflow-service
+        subset: canary
+      mirrorPercentage:
+        value: 10.0
+---
+# Fault Injection for Testing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: fault-injection-test
+  namespace: linkflow-test
+spec:
+  hosts:
+    - execution-service
+  http:
+    - fault:
+        delay:
+          percentage:
+            value: 10
+          fixedDelay: 5s
+        abort:
+          percentage:
+            value: 5
+          httpStatus: 503
+      route:
+        - destination:
+            host: execution-service
+---
+# Rate Limiting with Envoy
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: rate-limit
+  namespace: linkflow
+spec:
+  workloadSelector:
+    labels:
+      app: gateway-service
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.local_ratelimit
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            value:
+              stat_prefix: http_local_rate_limiter
+              token_bucket:
+                max_tokens: 1000
+                tokens_per_fill: 100
+                fill_interval: 1s
+              filter_enabled:
+                runtime_key: local_rate_limit_enabled
+                default_value:
+                  numerator: 100
+                  denominator: HUNDRED
+              filter_enforced:
+                runtime_key: local_rate_limit_enforced
+                default_value:
+                  numerator: 100
+                  denominator: HUNDRED
+---
+# Timeout configuration per service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: service-timeouts
+  namespace: linkflow
+spec:
+  hosts:
+    - execution-service
+  http:
+    - route:
+        - destination:
+            host: execution-service
+      timeout: 300s  # 5 minutes for long-running executions
+---
+# Load Balancing - Consistent Hash
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: session-affinity
+  namespace: linkflow
+spec:
+  host: gateway-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: LINKFLOW_SESSION
+          ttl: 3600s

@@ -1,0 +1,242 @@
+# LinkFlow AI - Istio Gateway Configuration
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: linkflow-gateway
+  namespace: linkflow
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.linkflow.ai"
+        - "linkflow.ai"
+      tls:
+        httpsRedirect: true
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "*.linkflow.ai"
+        - "linkflow.ai"
+      tls:
+        mode: SIMPLE
+        credentialName: linkflow-tls-cert
+---
+# API Virtual Service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: linkflow-api
+  namespace: linkflow
+spec:
+  hosts:
+    - "api.linkflow.ai"
+  gateways:
+    - linkflow-gateway
+  http:
+    # Auth Service
+    - match:
+        - uri:
+            prefix: /api/v1/auth
+      route:
+        - destination:
+            host: auth-service
+            port:
+              number: 8001
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: gateway-error,connect-failure,refused-stream
+
+    # User Service
+    - match:
+        - uri:
+            prefix: /api/v1/users
+      route:
+        - destination:
+            host: user-service
+            port:
+              number: 8002
+
+    # Workflow Service
+    - match:
+        - uri:
+            prefix: /api/v1/workflows
+      route:
+        - destination:
+            host: workflow-service
+            port:
+              number: 8004
+      timeout: 60s
+
+    # Execution Service
+    - match:
+        - uri:
+            prefix: /api/v1/executions
+      route:
+        - destination:
+            host: execution-service
+            port:
+              number: 8003
+      timeout: 120s
+
+    # Schedule Service
+    - match:
+        - uri:
+            prefix: /api/v1/schedules
+      route:
+        - destination:
+            host: schedule-service
+            port:
+              number: 8006
+
+    # Webhook Service
+    - match:
+        - uri:
+            prefix: /api/v1/webhooks
+      route:
+        - destination:
+            host: webhook-service
+            port:
+              number: 8007
+
+    # Notification Service
+    - match:
+        - uri:
+            prefix: /api/v1/notifications
+      route:
+        - destination:
+            host: notification-service
+            port:
+              number: 8008
+
+    # Analytics Service
+    - match:
+        - uri:
+            prefix: /api/v1/analytics
+      route:
+        - destination:
+            host: analytics-service
+            port:
+              number: 8009
+
+    # Search Service
+    - match:
+        - uri:
+            prefix: /api/v1/search
+      route:
+        - destination:
+            host: search-service
+            port:
+              number: 8010
+
+    # Storage Service
+    - match:
+        - uri:
+            prefix: /api/v1/files
+        - uri:
+            prefix: /api/v1/storage
+      route:
+        - destination:
+            host: storage-service
+            port:
+              number: 8011
+      timeout: 300s
+
+    # Default route to gateway
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: gateway-service
+            port:
+              number: 8000
+---
+# Destination Rules for mTLS
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: linkflow-mtls
+  namespace: linkflow
+spec:
+  host: "*.linkflow.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    loadBalancer:
+      simple: LEAST_REQUEST
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+# Service-specific Destination Rules
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: auth-service
+  namespace: linkflow
+spec:
+  host: auth-service
+  trafficPolicy:
+    connectionPool:
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 500
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: workflow-service
+  namespace: linkflow
+spec:
+  host: workflow-service
+  trafficPolicy:
+    connectionPool:
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    loadBalancer:
+      consistentHash:
+        httpHeaderName: x-workflow-id
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: execution-service
+  namespace: linkflow
+spec:
+  host: execution-service
+  trafficPolicy:
+    connectionPool:
+      http:
+        http1MaxPendingRequests: 200
+        http2MaxRequests: 2000
+    loadBalancer:
+      simple: LEAST_REQUEST
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 60s

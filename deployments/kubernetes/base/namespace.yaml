@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: linkflow
+  labels:
+    app.kubernetes.io/name: linkflow
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: linkflow-quota
+  namespace: linkflow
+spec:
+  hard:
+    requests.cpu: "50"
+    requests.memory: 100Gi
+    limits.cpu: "100"
+    limits.memory: 200Gi
+    pods: "200"

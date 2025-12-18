@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: linkflow
+resources:
+  - ../../base
+commonLabels:
+  environment: production
+replicas:
+  - name: gateway-service
+    count: 5
+  - name: execution-service
+    count: 10
+  - name: executor-service
+    count: 10
+images:
+  - name: linkflow/gateway
+    newTag: v1.0.0
+  - name: linkflow/auth
+    newTag: v1.0.0
+  - name: linkflow/execution
+    newTag: v1.0.0
+  - name: linkflow/workflow
+    newTag: v1.0.0
+  - name: linkflow/executor
+    newTag: v1.0.0
