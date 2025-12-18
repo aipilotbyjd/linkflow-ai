@@ -183,7 +183,7 @@ func (s *MonitoringService) checkServiceHealth(service, endpoint string) {
 	s.healthChecks[service] = healthCheck
 	s.mu.Unlock()
 	
-	s.logger.Debug("Health check performed", "service", service, "status", healthCheck.Status)
+	s.logger.Debug("Health check performed", "service", service, "status", string(healthCheck.Status))
 }
 
 func (s *MonitoringService) monitorAlerts(ctx context.Context) {

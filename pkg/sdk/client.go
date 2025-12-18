@@ -23,10 +23,6 @@ type Client struct {
 	Auth         *AuthService
 	Workflows    *WorkflowService
 	Executions   *ExecutionService
-	Schedules    *ScheduleService
-	Webhooks     *WebhookService
-	Notifications *NotificationService
-	Analytics    *AnalyticsService
 }
 
 // ClientOption is a function that configures a Client
@@ -71,10 +67,6 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 	c.Auth = &AuthService{client: c}
 	c.Workflows = &WorkflowService{client: c}
 	c.Executions = &ExecutionService{client: c}
-	c.Schedules = &ScheduleService{client: c}
-	c.Webhooks = &WebhookService{client: c}
-	c.Notifications = &NotificationService{client: c}
-	c.Analytics = &AnalyticsService{client: c}
 
 	return c
 }

@@ -1,0 +1,206 @@
+# LinkFlow AI - Production Environment Configuration
+# WARNING: Never commit sensitive values. Use environment variables or secrets management.
+
+service:
+  name: linkflow-ai
+  environment: production
+  version: "1.0.0"
+
+http:
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 120s
+  max_header_bytes: 1048576  # 1MB
+
+database:
+  host: ${DATABASE_HOST}
+  port: ${DATABASE_PORT:5432}
+  name: ${DATABASE_NAME:linkflow}
+  user: ${DATABASE_USER}
+  password: ${DATABASE_PASSWORD}
+  ssl_mode: require
+  max_open_connections: 100
+  max_idle_connections: 25
+  connection_max_lifetime: 5m
+  connection_max_idle_time: 30m
+
+redis:
+  host: ${REDIS_HOST}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD}
+  db: 0
+  max_retries: 3
+  pool_size: 50
+  min_idle_conns: 10
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+
+kafka:
+  brokers: ${KAFKA_BROKERS}
+  consumer_group: linkflow-production
+  auto_offset_reset: earliest
+  enable_auto_commit: true
+  session_timeout: 30s
+  heartbeat_interval: 10s
+  max_poll_records: 500
+
+elasticsearch:
+  urls: ${ELASTICSEARCH_URLS}
+  username: ${ELASTICSEARCH_USERNAME}
+  password: ${ELASTICSEARCH_PASSWORD}
+  index_prefix: linkflow_prod
+  number_of_shards: 5
+  number_of_replicas: 2
+
+auth:
+  jwt_secret: ${JWT_SECRET}
+  jwt_expiration: 24h
+  refresh_expiration: 168h  # 7 days
+  bcrypt_cost: 12
+  session_timeout: 30m
+  max_login_attempts: 5
+  lockout_duration: 15m
+
+security:
+  cors:
+    allowed_origins:
+      - https://app.linkflow.ai
+      - https://admin.linkflow.ai
+    allowed_methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed_headers:
+      - Content-Type
+      - Authorization
+      - X-Request-ID
+      - X-CSRF-Token
+    max_age: 86400
+  
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 1000
+    burst_size: 2000
+  
+  tls:
+    enabled: true
+    min_version: "1.2"
+  
+  headers:
+    x_content_type_options: nosniff
+    x_frame_options: DENY
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: "max-age=31536000; includeSubDomains"
+    content_security_policy: "default-src 'self'"
+
+telemetry:
+  jaeger:
+    endpoint: ${JAEGER_ENDPOINT}
+    sampler_type: probabilistic
+    sampler_param: 0.1  # Sample 10% of requests
+  
+  prometheus:
+    enabled: true
+    port: 9090
+  
+  logging:
+    level: info
+    format: json
+    output: stdout
+    include_caller: true
+    include_stacktrace: error
+
+storage:
+  type: s3
+  s3:
+    bucket: ${S3_BUCKET}
+    region: ${S3_REGION:us-east-1}
+    access_key: ${S3_ACCESS_KEY}
+    secret_key: ${S3_SECRET_KEY}
+    endpoint: ${S3_ENDPOINT}  # For S3-compatible storage
+  max_upload_size: 104857600  # 100MB
+  allowed_extensions:
+    - .pdf
+    - .doc
+    - .docx
+    - .xls
+    - .xlsx
+    - .png
+    - .jpg
+    - .jpeg
+    - .gif
+    - .zip
+    - .json
+    - .csv
+
+notifications:
+  email:
+    provider: ses
+    from: notifications@linkflow.ai
+    ses:
+      region: ${SES_REGION:us-east-1}
+      access_key: ${SES_ACCESS_KEY}
+      secret_key: ${SES_SECRET_KEY}
+  
+  sms:
+    provider: twilio
+    twilio:
+      account_sid: ${TWILIO_ACCOUNT_SID}
+      auth_token: ${TWILIO_AUTH_TOKEN}
+      from_number: ${TWILIO_FROM_NUMBER}
+  
+  slack:
+    webhook_url: ${SLACK_WEBHOOK_URL}
+  
+  push:
+    provider: fcm
+    fcm:
+      project_id: ${FCM_PROJECT_ID}
+      credentials_file: ${FCM_CREDENTIALS_FILE}
+
+cache:
+  default_ttl: 5m
+  workflow_ttl: 15m
+  user_ttl: 10m
+  session_ttl: 30m
+  
+execution:
+  max_concurrent_workflows: 1000
+  max_execution_time: 3600  # 1 hour
+  default_timeout: 300  # 5 minutes
+  retry_policy:
+    max_attempts: 3
+    backoff_type: exponential
+    initial_delay: 1s
+    max_delay: 60s
+
+features:
+  workflow_versioning: true
+  multi_tenancy: true
+  audit_logging: true
+  webhooks: true
+  real_time_updates: true
+  analytics: true
+  ai_suggestions: false  # Coming soon
+
+monitoring:
+  health_check_interval: 30s
+  metrics_collection_interval: 15s
+  alert_threshold:
+    cpu_percent: 80
+    memory_percent: 85
+    disk_percent: 90
+    error_rate: 0.05
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 30
+  storage:
+    type: s3
+    bucket: ${BACKUP_S3_BUCKET}
+    region: ${BACKUP_S3_REGION:us-east-1}

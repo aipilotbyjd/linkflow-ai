@@ -56,13 +56,13 @@ func (m *Metric) Value() float64       { return m.value }
 func (m *Metric) Timestamp() time.Time { return m.timestamp }
 
 type HealthCheck struct {
-	id            string
-	service       string
-	endpoint      string
-	status        HealthStatus
-	responseTime  time.Duration
-	errorMessage  string
-	lastCheckTime time.Time
+	ID            string
+	Service       string
+	Endpoint      string
+	Status        HealthStatus
+	ResponseTime  time.Duration
+	ErrorMessage  string
+	LastCheckTime time.Time
 }
 
 type HealthStatus string
@@ -75,24 +75,24 @@ const (
 
 func NewHealthCheck(service, endpoint string) *HealthCheck {
 	return &HealthCheck{
-		id:            uuid.New().String(),
-		service:       service,
-		endpoint:      endpoint,
-		status:        HealthStatusHealthy,
-		lastCheckTime: time.Now(),
+		ID:            uuid.New().String(),
+		Service:       service,
+		Endpoint:      endpoint,
+		Status:        HealthStatusHealthy,
+		LastCheckTime: time.Now(),
 	}
 }
 
 type Alert struct {
-	id          string
-	metric      string
-	condition   string
-	threshold   float64
-	severity    AlertSeverity
-	message     string
-	triggered   bool
-	triggeredAt *time.Time
-	resolvedAt  *time.Time
+	ID          string
+	Metric      string
+	Condition   string
+	Threshold   float64
+	Severity    AlertSeverity
+	Message     string
+	Triggered   bool
+	TriggeredAt *time.Time
+	ResolvedAt  *time.Time
 }
 
 type AlertSeverity string
@@ -105,11 +105,11 @@ const (
 
 func NewAlert(metric, condition string, threshold float64, severity AlertSeverity) *Alert {
 	return &Alert{
-		id:        uuid.New().String(),
-		metric:    metric,
-		condition: condition,
-		threshold: threshold,
-		severity:  severity,
-		triggered: false,
+		ID:        uuid.New().String(),
+		Metric:    metric,
+		Condition: condition,
+		Threshold: threshold,
+		Severity:  severity,
+		Triggered: false,
 	}
 }

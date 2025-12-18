@@ -1,0 +1,873 @@
+# LinkFlow AI GraphQL Schema
+# Version: 1.0.0
+
+scalar DateTime
+scalar JSON
+scalar UUID
+
+# Root Query Type
+type Query {
+  # Authentication
+  me: User
+  
+  # Workflows
+  workflow(id: UUID!): Workflow
+  workflows(filter: WorkflowFilter, pagination: PaginationInput): WorkflowConnection!
+  
+  # Executions
+  execution(id: UUID!): Execution
+  executions(workflowId: UUID, filter: ExecutionFilter, pagination: PaginationInput): ExecutionConnection!
+  
+  # Schedules
+  schedule(id: UUID!): Schedule
+  schedules(workflowId: UUID, pagination: PaginationInput): ScheduleConnection!
+  
+  # Webhooks
+  webhook(id: UUID!): Webhook
+  webhooks(pagination: PaginationInput): WebhookConnection!
+  
+  # Notifications
+  notifications(filter: NotificationFilter, pagination: PaginationInput): NotificationConnection!
+  unreadNotificationCount: Int!
+  
+  # Analytics
+  analyticsMetrics(input: AnalyticsInput!): AnalyticsResult!
+  
+  # Search
+  search(query: String!, types: [SearchType!], pagination: PaginationInput): SearchResult!
+  
+  # Nodes
+  nodeDefinitions(type: NodeType): [NodeDefinition!]!
+  
+  # Integrations
+  integrations(pagination: PaginationInput): IntegrationConnection!
+  availableIntegrations: [IntegrationType!]!
+}
+
+# Root Mutation Type
+type Mutation {
+  # Authentication
+  login(input: LoginInput!): AuthPayload!
+  register(input: RegisterInput!): AuthPayload!
+  refreshToken(refreshToken: String!): AuthPayload!
+  logout: Boolean!
+  
+  # Workflows
+  createWorkflow(input: CreateWorkflowInput!): Workflow!
+  updateWorkflow(id: UUID!, input: UpdateWorkflowInput!): Workflow!
+  deleteWorkflow(id: UUID!): Boolean!
+  activateWorkflow(id: UUID!): Workflow!
+  deactivateWorkflow(id: UUID!): Workflow!
+  archiveWorkflow(id: UUID!): Workflow!
+  cloneWorkflow(id: UUID!, name: String!): Workflow!
+  
+  # Workflow Nodes
+  addNode(workflowId: UUID!, input: NodeInput!): Workflow!
+  updateNode(workflowId: UUID!, nodeId: String!, input: NodeInput!): Workflow!
+  removeNode(workflowId: UUID!, nodeId: String!): Workflow!
+  
+  # Workflow Connections
+  addConnection(workflowId: UUID!, input: ConnectionInput!): Workflow!
+  removeConnection(workflowId: UUID!, connectionId: String!): Workflow!
+  
+  # Executions
+  executeWorkflow(id: UUID!, input: ExecuteWorkflowInput): ExecutionResult!
+  cancelExecution(id: UUID!): Execution!
+  retryExecution(id: UUID!): ExecutionResult!
+  
+  # Schedules
+  createSchedule(input: CreateScheduleInput!): Schedule!
+  updateSchedule(id: UUID!, input: UpdateScheduleInput!): Schedule!
+  deleteSchedule(id: UUID!): Boolean!
+  pauseSchedule(id: UUID!): Schedule!
+  resumeSchedule(id: UUID!): Schedule!
+  
+  # Webhooks
+  createWebhook(input: CreateWebhookInput!): Webhook!
+  updateWebhook(id: UUID!, input: UpdateWebhookInput!): Webhook!
+  deleteWebhook(id: UUID!): Boolean!
+  testWebhook(id: UUID!): WebhookTestResult!
+  
+  # Notifications
+  markNotificationRead(id: UUID!): Notification!
+  markAllNotificationsRead: Int!
+  deleteNotification(id: UUID!): Boolean!
+  
+  # Integrations
+  createIntegration(input: CreateIntegrationInput!): Integration!
+  authorizeIntegration(id: UUID!, credentials: JSON!): Integration!
+  syncIntegration(id: UUID!): Integration!
+  deleteIntegration(id: UUID!): Boolean!
+  
+  # User Settings
+  updateProfile(input: UpdateProfileInput!): User!
+  changePassword(oldPassword: String!, newPassword: String!): Boolean!
+  
+  # Analytics
+  trackEvent(input: TrackEventInput!): Boolean!
+}
+
+# Root Subscription Type
+type Subscription {
+  # Workflow Events
+  workflowUpdated(id: UUID!): Workflow!
+  
+  # Execution Events
+  executionUpdated(id: UUID!): Execution!
+  executionNodeCompleted(executionId: UUID!): NodeExecutionEvent!
+  
+  # Notifications
+  notificationReceived: Notification!
+  
+  # System Events
+  systemHealth: HealthStatus!
+}
+
+# User Types
+type User {
+  id: UUID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  fullName: String!
+  avatar: String
+  organization: Organization
+  roles: [Role!]!
+  preferences: UserPreferences!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Organization {
+  id: UUID!
+  name: String!
+  slug: String!
+  members: [OrganizationMember!]!
+  plan: Plan!
+  createdAt: DateTime!
+}
+
+type OrganizationMember {
+  user: User!
+  role: OrganizationRole!
+  joinedAt: DateTime!
+}
+
+type UserPreferences {
+  theme: Theme!
+  notifications: NotificationPreferences!
+  timezone: String!
+  language: String!
+}
+
+type NotificationPreferences {
+  email: Boolean!
+  inApp: Boolean!
+  slack: Boolean!
+  digest: DigestFrequency!
+}
+
+enum Role {
+  ADMIN
+  USER
+  VIEWER
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum DigestFrequency {
+  REALTIME
+  HOURLY
+  DAILY
+  WEEKLY
+  NONE
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+# Workflow Types
+type Workflow {
+  id: UUID!
+  name: String!
+  description: String
+  status: WorkflowStatus!
+  version: Int!
+  nodes: [Node!]!
+  connections: [Connection!]!
+  settings: WorkflowSettings!
+  tags: [String!]!
+  executions(pagination: PaginationInput): ExecutionConnection!
+  schedules: [Schedule!]!
+  stats: WorkflowStats!
+  createdBy: User!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Node {
+  id: String!
+  type: NodeType!
+  name: String!
+  description: String
+  config: JSON!
+  position: Position!
+  inputs: [Port!]!
+  outputs: [Port!]!
+}
+
+type Port {
+  id: String!
+  name: String!
+  type: PortType!
+}
+
+type Position {
+  x: Float!
+  y: Float!
+}
+
+type Connection {
+  id: String!
+  sourceNodeId: String!
+  targetNodeId: String!
+  sourcePort: String
+  targetPort: String
+}
+
+type WorkflowSettings {
+  maxExecutionTime: Int!
+  retryPolicy: RetryPolicy!
+  errorHandling: ErrorHandling!
+  timeout: Int!
+  metadata: JSON
+}
+
+type RetryPolicy {
+  maxAttempts: Int!
+  backoffType: BackoffType!
+  delaySeconds: Int!
+}
+
+type WorkflowStats {
+  totalExecutions: Int!
+  successfulExecutions: Int!
+  failedExecutions: Int!
+  averageDuration: Float!
+  lastExecutedAt: DateTime
+}
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum NodeType {
+  TRIGGER
+  ACTION
+  CONDITION
+  LOOP
+  TRANSFORM
+  OUTPUT
+  DELAY
+  WEBHOOK
+  SCHEDULE
+}
+
+enum PortType {
+  INPUT
+  OUTPUT
+  ERROR
+}
+
+enum BackoffType {
+  LINEAR
+  EXPONENTIAL
+  CONSTANT
+}
+
+enum ErrorHandling {
+  STOP
+  CONTINUE
+  RETRY
+}
+
+# Execution Types
+type Execution {
+  id: UUID!
+  workflow: Workflow!
+  status: ExecutionStatus!
+  input: JSON
+  output: JSON
+  errors: [ExecutionError!]!
+  nodeExecutions: [NodeExecution!]!
+  duration: Int
+  startedAt: DateTime!
+  completedAt: DateTime
+  triggeredBy: ExecutionTrigger!
+  logs: [ExecutionLog!]!
+}
+
+type NodeExecution {
+  nodeId: String!
+  status: ExecutionStatus!
+  input: JSON
+  output: JSON
+  error: ExecutionError
+  duration: Int
+  startedAt: DateTime!
+  completedAt: DateTime
+}
+
+type ExecutionError {
+  nodeId: String
+  code: String!
+  message: String!
+  details: JSON
+  stackTrace: String
+}
+
+type ExecutionLog {
+  timestamp: DateTime!
+  level: LogLevel!
+  nodeId: String
+  message: String!
+  data: JSON
+}
+
+type ExecutionResult {
+  executionId: UUID!
+  status: ExecutionStatus!
+  output: JSON
+  errors: [ExecutionError!]
+}
+
+type NodeExecutionEvent {
+  executionId: UUID!
+  nodeId: String!
+  status: ExecutionStatus!
+  output: JSON
+  timestamp: DateTime!
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  TIMEOUT
+}
+
+enum ExecutionTrigger {
+  MANUAL
+  SCHEDULE
+  WEBHOOK
+  API
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+# Schedule Types
+type Schedule {
+  id: UUID!
+  workflow: Workflow!
+  name: String!
+  cronExpression: String!
+  timezone: String!
+  enabled: Boolean!
+  nextRunAt: DateTime
+  lastRunAt: DateTime
+  lastExecution: Execution
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# Webhook Types
+type Webhook {
+  id: UUID!
+  name: String!
+  endpointUrl: String!
+  events: [WebhookEvent!]!
+  secret: String
+  signature: String!
+  enabled: Boolean!
+  lastDelivery: WebhookDelivery
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type WebhookDelivery {
+  id: UUID!
+  event: WebhookEvent!
+  status: DeliveryStatus!
+  statusCode: Int
+  responseTime: Int
+  error: String
+  deliveredAt: DateTime!
+}
+
+type WebhookTestResult {
+  success: Boolean!
+  statusCode: Int
+  responseTime: Int
+  error: String
+}
+
+enum WebhookEvent {
+  WORKFLOW_CREATED
+  WORKFLOW_UPDATED
+  WORKFLOW_DELETED
+  WORKFLOW_ACTIVATED
+  WORKFLOW_DEACTIVATED
+  EXECUTION_STARTED
+  EXECUTION_COMPLETED
+  EXECUTION_FAILED
+}
+
+enum DeliveryStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+# Notification Types
+type Notification {
+  id: UUID!
+  title: String!
+  message: String!
+  type: NotificationType!
+  priority: NotificationPriority!
+  read: Boolean!
+  readAt: DateTime
+  metadata: JSON
+  createdAt: DateTime!
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+# Integration Types
+type Integration {
+  id: UUID!
+  name: String!
+  type: IntegrationType!
+  status: IntegrationStatus!
+  config: JSON!
+  lastSyncAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type NodeDefinition {
+  type: NodeType!
+  name: String!
+  description: String!
+  category: String!
+  icon: String!
+  inputs: [PortDefinition!]!
+  outputs: [PortDefinition!]!
+  configSchema: JSON!
+}
+
+type PortDefinition {
+  name: String!
+  type: PortType!
+  required: Boolean!
+  description: String
+}
+
+enum IntegrationType {
+  SLACK
+  GITHUB
+  GOOGLE_DRIVE
+  DROPBOX
+  JIRA
+  ZAPIER
+  WEBHOOK
+  CUSTOM
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  AUTH_REQUIRED
+  ERROR
+}
+
+# Analytics Types
+type AnalyticsResult {
+  metrics: [MetricData!]!
+  timeSeries: [TimeSeriesData!]!
+  summary: AnalyticsSummary!
+}
+
+type MetricData {
+  name: String!
+  value: Float!
+  change: Float
+  changePercent: Float
+}
+
+type TimeSeriesData {
+  timestamp: DateTime!
+  values: JSON!
+}
+
+type AnalyticsSummary {
+  totalWorkflows: Int!
+  totalExecutions: Int!
+  successRate: Float!
+  averageDuration: Float!
+}
+
+# Search Types
+type SearchResult {
+  items: [SearchItem!]!
+  totalCount: Int!
+  facets: [SearchFacet!]!
+}
+
+type SearchItem {
+  id: UUID!
+  type: SearchType!
+  title: String!
+  description: String
+  highlights: [String!]!
+  score: Float!
+}
+
+type SearchFacet {
+  field: String!
+  values: [FacetValue!]!
+}
+
+type FacetValue {
+  value: String!
+  count: Int!
+}
+
+enum SearchType {
+  WORKFLOW
+  EXECUTION
+  NODE
+  USER
+}
+
+# Health Types
+type HealthStatus {
+  status: ServiceStatus!
+  services: [ServiceHealth!]!
+  timestamp: DateTime!
+}
+
+type ServiceHealth {
+  name: String!
+  status: ServiceStatus!
+  latency: Int!
+  message: String
+}
+
+enum ServiceStatus {
+  HEALTHY
+  DEGRADED
+  UNHEALTHY
+}
+
+# Input Types
+input LoginInput {
+  email: String!
+  password: String!
+  rememberMe: Boolean
+}
+
+input RegisterInput {
+  email: String!
+  password: String!
+  firstName: String!
+  lastName: String!
+  organizationName: String
+}
+
+input CreateWorkflowInput {
+  name: String!
+  description: String
+  nodes: [NodeInput!]
+  connections: [ConnectionInput!]
+  settings: WorkflowSettingsInput
+  tags: [String!]
+}
+
+input UpdateWorkflowInput {
+  name: String
+  description: String
+  nodes: [NodeInput!]
+  connections: [ConnectionInput!]
+  settings: WorkflowSettingsInput
+  tags: [String!]
+}
+
+input NodeInput {
+  id: String!
+  type: NodeType!
+  name: String!
+  description: String
+  config: JSON!
+  position: PositionInput!
+}
+
+input PositionInput {
+  x: Float!
+  y: Float!
+}
+
+input ConnectionInput {
+  id: String!
+  sourceNodeId: String!
+  targetNodeId: String!
+  sourcePort: String
+  targetPort: String
+}
+
+input WorkflowSettingsInput {
+  maxExecutionTime: Int
+  retryPolicy: RetryPolicyInput
+  errorHandling: ErrorHandling
+  timeout: Int
+  metadata: JSON
+}
+
+input RetryPolicyInput {
+  maxAttempts: Int!
+  backoffType: BackoffType!
+  delaySeconds: Int!
+}
+
+input ExecuteWorkflowInput {
+  input: JSON
+  context: JSON
+  async: Boolean
+}
+
+input CreateScheduleInput {
+  workflowId: UUID!
+  name: String!
+  cronExpression: String!
+  timezone: String
+  enabled: Boolean
+}
+
+input UpdateScheduleInput {
+  name: String
+  cronExpression: String
+  timezone: String
+  enabled: Boolean
+}
+
+input CreateWebhookInput {
+  name: String!
+  endpointUrl: String!
+  events: [WebhookEvent!]!
+  secret: String
+  enabled: Boolean
+}
+
+input UpdateWebhookInput {
+  name: String
+  endpointUrl: String
+  events: [WebhookEvent!]
+  secret: String
+  enabled: Boolean
+}
+
+input CreateIntegrationInput {
+  name: String!
+  type: IntegrationType!
+  config: JSON!
+}
+
+input UpdateProfileInput {
+  firstName: String
+  lastName: String
+  avatar: String
+  preferences: UserPreferencesInput
+}
+
+input UserPreferencesInput {
+  theme: Theme
+  timezone: String
+  language: String
+  notifications: NotificationPreferencesInput
+}
+
+input NotificationPreferencesInput {
+  email: Boolean
+  inApp: Boolean
+  slack: Boolean
+  digest: DigestFrequency
+}
+
+input TrackEventInput {
+  eventType: String!
+  eventName: String!
+  properties: JSON
+}
+
+input AnalyticsInput {
+  startDate: DateTime!
+  endDate: DateTime!
+  metrics: [String!]!
+  groupBy: String
+}
+
+input WorkflowFilter {
+  status: WorkflowStatus
+  tags: [String!]
+  createdAfter: DateTime
+  createdBefore: DateTime
+}
+
+input ExecutionFilter {
+  status: ExecutionStatus
+  triggeredBy: ExecutionTrigger
+  startedAfter: DateTime
+  startedBefore: DateTime
+}
+
+input NotificationFilter {
+  type: NotificationType
+  read: Boolean
+  priority: NotificationPriority
+}
+
+input PaginationInput {
+  page: Int
+  pageSize: Int
+  sortBy: String
+  sortOrder: SortOrder
+}
+
+enum SortOrder {
+  ASC
+  DESC
+}
+
+# Connection Types (Relay-style pagination)
+type WorkflowConnection {
+  edges: [WorkflowEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type WorkflowEdge {
+  node: Workflow!
+  cursor: String!
+}
+
+type ExecutionConnection {
+  edges: [ExecutionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ExecutionEdge {
+  node: Execution!
+  cursor: String!
+}
+
+type ScheduleConnection {
+  edges: [ScheduleEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ScheduleEdge {
+  node: Schedule!
+  cursor: String!
+}
+
+type WebhookConnection {
+  edges: [WebhookEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type WebhookEdge {
+  node: Webhook!
+  cursor: String!
+}
+
+type NotificationConnection {
+  edges: [NotificationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type NotificationEdge {
+  node: Notification!
+  cursor: String!
+}
+
+type IntegrationConnection {
+  edges: [IntegrationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type IntegrationEdge {
+  node: Integration!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Auth Payload
+type AuthPayload {
+  user: User!
+  tokens: Tokens!
+}
+
+type Tokens {
+  accessToken: String!
+  refreshToken: String!
+  expiresIn: Int!
+}

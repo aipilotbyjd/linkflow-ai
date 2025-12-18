@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -171,7 +172,7 @@ func (s *IntegrationService) testSlackConnection(ctx context.Context, integratio
 	}
 	
 	data, _ := json.Marshal(payload)
-	resp, err := s.httpClient.Post(webhookURL, "application/json", nil)
+	resp, err := s.httpClient.Post(webhookURL, "application/json", bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
