@@ -1,0 +1,252 @@
+syntax = "proto3";
+
+package linkflow.webhook.v1;
+
+option go_package = "github.com/linkflow-ai/linkflow-ai/api/grpc/webhook/v1;webhookpb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+
+// WebhookService provides webhook management operations
+service WebhookService {
+  // Create a new webhook
+  rpc CreateWebhook(CreateWebhookRequest) returns (Webhook);
+  
+  // Get webhook by ID
+  rpc GetWebhook(GetWebhookRequest) returns (Webhook);
+  
+  // List webhooks
+  rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
+  
+  // Update webhook
+  rpc UpdateWebhook(UpdateWebhookRequest) returns (Webhook);
+  
+  // Delete webhook
+  rpc DeleteWebhook(DeleteWebhookRequest) returns (google.protobuf.Empty);
+  
+  // Enable webhook
+  rpc EnableWebhook(EnableWebhookRequest) returns (Webhook);
+  
+  // Disable webhook
+  rpc DisableWebhook(DisableWebhookRequest) returns (Webhook);
+  
+  // Regenerate webhook secret
+  rpc RegenerateSecret(RegenerateSecretRequest) returns (RegenerateSecretResponse);
+  
+  // Trigger webhook (for workflow execution)
+  rpc TriggerWebhook(TriggerWebhookRequest) returns (TriggerWebhookResponse);
+  
+  // Get webhook delivery history
+  rpc GetDeliveryHistory(GetDeliveryHistoryRequest) returns (GetDeliveryHistoryResponse);
+  
+  // Retry failed delivery
+  rpc RetryDelivery(RetryDeliveryRequest) returns (WebhookDelivery);
+  
+  // Test webhook
+  rpc TestWebhook(TestWebhookRequest) returns (WebhookDelivery);
+}
+
+// Webhook message
+message Webhook {
+  string id = 1;
+  string workflow_id = 2;
+  string user_id = 3;
+  string organization_id = 4;
+  string name = 5;
+  string description = 6;
+  string url = 7;
+  string path = 8;
+  string secret = 9;
+  repeated string events = 10;
+  WebhookStatus status = 11;
+  WebhookConfig config = 12;
+  WebhookStats stats = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+// WebhookStatus enum
+enum WebhookStatus {
+  WEBHOOK_STATUS_UNSPECIFIED = 0;
+  WEBHOOK_STATUS_ACTIVE = 1;
+  WEBHOOK_STATUS_DISABLED = 2;
+  WEBHOOK_STATUS_FAILING = 3;
+}
+
+// WebhookConfig message
+message WebhookConfig {
+  string http_method = 1;
+  map<string, string> headers = 2;
+  string content_type = 3;
+  int32 timeout_seconds = 4;
+  RetryConfig retry = 5;
+  bool ssl_verification = 6;
+  AuthConfig auth = 7;
+}
+
+// RetryConfig message
+message RetryConfig {
+  bool enabled = 1;
+  int32 max_attempts = 2;
+  int32 initial_delay_seconds = 3;
+  int32 max_delay_seconds = 4;
+  string backoff_type = 5; // linear, exponential
+}
+
+// AuthConfig message
+message AuthConfig {
+  string type = 1; // none, basic, bearer, api_key, hmac
+  string username = 2;
+  string password = 3;
+  string token = 4;
+  string api_key = 5;
+  string api_key_header = 6;
+  string hmac_algorithm = 7; // sha256, sha512
+  string hmac_header = 8;
+}
+
+// WebhookStats message
+message WebhookStats {
+  int64 total_deliveries = 1;
+  int64 successful_deliveries = 2;
+  int64 failed_deliveries = 3;
+  double success_rate = 4;
+  double average_latency_ms = 5;
+  google.protobuf.Timestamp last_delivery = 6;
+  google.protobuf.Timestamp last_success = 7;
+  google.protobuf.Timestamp last_failure = 8;
+}
+
+// WebhookDelivery message
+message WebhookDelivery {
+  string id = 1;
+  string webhook_id = 2;
+  string event = 3;
+  google.protobuf.Struct payload = 4;
+  WebhookDeliveryStatus status = 5;
+  int32 attempt = 6;
+  int32 response_code = 7;
+  string response_body = 8;
+  map<string, string> response_headers = 9;
+  int64 latency_ms = 10;
+  string error = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+}
+
+// WebhookDeliveryStatus enum
+enum WebhookDeliveryStatus {
+  WEBHOOK_DELIVERY_STATUS_UNSPECIFIED = 0;
+  WEBHOOK_DELIVERY_STATUS_PENDING = 1;
+  WEBHOOK_DELIVERY_STATUS_SUCCESS = 2;
+  WEBHOOK_DELIVERY_STATUS_FAILED = 3;
+  WEBHOOK_DELIVERY_STATUS_RETRYING = 4;
+}
+
+// CreateWebhookRequest message
+message CreateWebhookRequest {
+  string workflow_id = 1;
+  string name = 2;
+  string description = 3;
+  string url = 4;
+  repeated string events = 5;
+  WebhookConfig config = 6;
+}
+
+// GetWebhookRequest message
+message GetWebhookRequest {
+  string id = 1;
+}
+
+// ListWebhooksRequest message
+message ListWebhooksRequest {
+  string workflow_id = 1;
+  WebhookStatus status = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// ListWebhooksResponse message
+message ListWebhooksResponse {
+  repeated Webhook webhooks = 1;
+  int32 total_count = 2;
+}
+
+// UpdateWebhookRequest message
+message UpdateWebhookRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string url = 4;
+  repeated string events = 5;
+  WebhookConfig config = 6;
+}
+
+// DeleteWebhookRequest message
+message DeleteWebhookRequest {
+  string id = 1;
+}
+
+// EnableWebhookRequest message
+message EnableWebhookRequest {
+  string id = 1;
+}
+
+// DisableWebhookRequest message
+message DisableWebhookRequest {
+  string id = 1;
+}
+
+// RegenerateSecretRequest message
+message RegenerateSecretRequest {
+  string id = 1;
+}
+
+// RegenerateSecretResponse message
+message RegenerateSecretResponse {
+  string secret = 1;
+}
+
+// TriggerWebhookRequest message
+message TriggerWebhookRequest {
+  string path = 1;
+  string method = 2;
+  map<string, string> headers = 3;
+  bytes body = 4;
+  map<string, string> query_params = 5;
+}
+
+// TriggerWebhookResponse message
+message TriggerWebhookResponse {
+  string execution_id = 1;
+  bool accepted = 2;
+  string message = 3;
+}
+
+// GetDeliveryHistoryRequest message
+message GetDeliveryHistoryRequest {
+  string webhook_id = 1;
+  WebhookDeliveryStatus status = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+}
+
+// GetDeliveryHistoryResponse message
+message GetDeliveryHistoryResponse {
+  repeated WebhookDelivery deliveries = 1;
+  int32 total_count = 2;
+}
+
+// RetryDeliveryRequest message
+message RetryDeliveryRequest {
+  string delivery_id = 1;
+}
+
+// TestWebhookRequest message
+message TestWebhookRequest {
+  string id = 1;
+  google.protobuf.Struct sample_payload = 2;
+}

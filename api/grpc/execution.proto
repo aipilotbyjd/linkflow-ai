@@ -1,0 +1,276 @@
+syntax = "proto3";
+
+package linkflow.execution.v1;
+
+option go_package = "github.com/linkflow-ai/linkflow-ai/api/grpc/execution/v1;executionpb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+
+// ExecutionService provides workflow execution operations
+service ExecutionService {
+  // Start a new execution
+  rpc StartExecution(StartExecutionRequest) returns (StartExecutionResponse);
+  
+  // Get execution by ID
+  rpc GetExecution(GetExecutionRequest) returns (Execution);
+  
+  // List executions
+  rpc ListExecutions(ListExecutionsRequest) returns (ListExecutionsResponse);
+  
+  // Cancel execution
+  rpc CancelExecution(CancelExecutionRequest) returns (Execution);
+  
+  // Retry failed execution
+  rpc RetryExecution(RetryExecutionRequest) returns (StartExecutionResponse);
+  
+  // Get execution logs
+  rpc GetExecutionLogs(GetExecutionLogsRequest) returns (GetExecutionLogsResponse);
+  
+  // Stream execution events
+  rpc StreamExecutionEvents(StreamExecutionEventsRequest) returns (stream ExecutionEvent);
+  
+  // Get node execution details
+  rpc GetNodeExecution(GetNodeExecutionRequest) returns (NodeExecution);
+  
+  // List node executions for an execution
+  rpc ListNodeExecutions(ListNodeExecutionsRequest) returns (ListNodeExecutionsResponse);
+  
+  // Get execution metrics
+  rpc GetExecutionMetrics(GetExecutionMetricsRequest) returns (ExecutionMetrics);
+}
+
+// Execution message
+message Execution {
+  string id = 1;
+  string workflow_id = 2;
+  string workflow_version = 3;
+  string user_id = 4;
+  ExecutionStatus status = 5;
+  ExecutionTrigger trigger = 6;
+  google.protobuf.Struct input = 7;
+  google.protobuf.Struct output = 8;
+  google.protobuf.Struct context = 9;
+  repeated ExecutionError errors = 10;
+  int64 duration_ms = 11;
+  google.protobuf.Timestamp started_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+}
+
+// ExecutionStatus enum
+enum ExecutionStatus {
+  EXECUTION_STATUS_UNSPECIFIED = 0;
+  EXECUTION_STATUS_PENDING = 1;
+  EXECUTION_STATUS_QUEUED = 2;
+  EXECUTION_STATUS_RUNNING = 3;
+  EXECUTION_STATUS_COMPLETED = 4;
+  EXECUTION_STATUS_FAILED = 5;
+  EXECUTION_STATUS_CANCELLED = 6;
+  EXECUTION_STATUS_TIMEOUT = 7;
+  EXECUTION_STATUS_PAUSED = 8;
+}
+
+// ExecutionTrigger enum
+enum ExecutionTrigger {
+  EXECUTION_TRIGGER_UNSPECIFIED = 0;
+  EXECUTION_TRIGGER_MANUAL = 1;
+  EXECUTION_TRIGGER_SCHEDULE = 2;
+  EXECUTION_TRIGGER_WEBHOOK = 3;
+  EXECUTION_TRIGGER_API = 4;
+  EXECUTION_TRIGGER_EVENT = 5;
+}
+
+// ExecutionError message
+message ExecutionError {
+  string node_id = 1;
+  string code = 2;
+  string message = 3;
+  google.protobuf.Struct details = 4;
+  string stack_trace = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// NodeExecution message
+message NodeExecution {
+  string id = 1;
+  string execution_id = 2;
+  string node_id = 3;
+  string node_type = 4;
+  string node_name = 5;
+  ExecutionStatus status = 6;
+  google.protobuf.Struct input = 7;
+  google.protobuf.Struct output = 8;
+  ExecutionError error = 9;
+  int32 attempt = 10;
+  int64 duration_ms = 11;
+  google.protobuf.Timestamp started_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+}
+
+// ExecutionEvent message
+message ExecutionEvent {
+  string id = 1;
+  string execution_id = 2;
+  string node_id = 3;
+  ExecutionEventType type = 4;
+  google.protobuf.Struct data = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+// ExecutionEventType enum
+enum ExecutionEventType {
+  EXECUTION_EVENT_TYPE_UNSPECIFIED = 0;
+  EXECUTION_EVENT_TYPE_STARTED = 1;
+  EXECUTION_EVENT_TYPE_NODE_STARTED = 2;
+  EXECUTION_EVENT_TYPE_NODE_COMPLETED = 3;
+  EXECUTION_EVENT_TYPE_NODE_FAILED = 4;
+  EXECUTION_EVENT_TYPE_NODE_SKIPPED = 5;
+  EXECUTION_EVENT_TYPE_NODE_RETRYING = 6;
+  EXECUTION_EVENT_TYPE_COMPLETED = 7;
+  EXECUTION_EVENT_TYPE_FAILED = 8;
+  EXECUTION_EVENT_TYPE_CANCELLED = 9;
+  EXECUTION_EVENT_TYPE_PAUSED = 10;
+  EXECUTION_EVENT_TYPE_RESUMED = 11;
+}
+
+// ExecutionLog message
+message ExecutionLog {
+  string id = 1;
+  string execution_id = 2;
+  string node_id = 3;
+  LogLevel level = 4;
+  string message = 5;
+  google.protobuf.Struct data = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// LogLevel enum
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  LOG_LEVEL_DEBUG = 1;
+  LOG_LEVEL_INFO = 2;
+  LOG_LEVEL_WARN = 3;
+  LOG_LEVEL_ERROR = 4;
+}
+
+// ExecutionMetrics message
+message ExecutionMetrics {
+  int64 total_executions = 1;
+  int64 successful_executions = 2;
+  int64 failed_executions = 3;
+  int64 cancelled_executions = 4;
+  double average_duration_ms = 5;
+  double p50_duration_ms = 6;
+  double p95_duration_ms = 7;
+  double p99_duration_ms = 8;
+  double success_rate = 9;
+  map<string, int64> executions_by_status = 10;
+  map<string, int64> executions_by_trigger = 11;
+}
+
+// StartExecutionRequest message
+message StartExecutionRequest {
+  string workflow_id = 1;
+  google.protobuf.Struct input = 2;
+  google.protobuf.Struct context = 3;
+  bool async = 4;
+  int32 priority = 5;
+  string idempotency_key = 6;
+}
+
+// StartExecutionResponse message
+message StartExecutionResponse {
+  string execution_id = 1;
+  ExecutionStatus status = 2;
+  google.protobuf.Struct output = 3;
+  repeated ExecutionError errors = 4;
+}
+
+// GetExecutionRequest message
+message GetExecutionRequest {
+  string id = 1;
+  bool include_logs = 2;
+  bool include_node_executions = 3;
+}
+
+// ListExecutionsRequest message
+message ListExecutionsRequest {
+  string workflow_id = 1;
+  string user_id = 2;
+  ExecutionStatus status = 3;
+  ExecutionTrigger trigger = 4;
+  google.protobuf.Timestamp started_after = 5;
+  google.protobuf.Timestamp started_before = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+  string sort_by = 9;
+  string sort_order = 10;
+}
+
+// ListExecutionsResponse message
+message ListExecutionsResponse {
+  repeated Execution executions = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// CancelExecutionRequest message
+message CancelExecutionRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+// RetryExecutionRequest message
+message RetryExecutionRequest {
+  string id = 1;
+  string from_node_id = 2; // Retry from specific node
+  google.protobuf.Struct override_input = 3;
+}
+
+// GetExecutionLogsRequest message
+message GetExecutionLogsRequest {
+  string execution_id = 1;
+  string node_id = 2;
+  LogLevel min_level = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+// GetExecutionLogsResponse message
+message GetExecutionLogsResponse {
+  repeated ExecutionLog logs = 1;
+  int32 total_count = 2;
+}
+
+// StreamExecutionEventsRequest message
+message StreamExecutionEventsRequest {
+  string execution_id = 1;
+  bool include_logs = 2;
+}
+
+// GetNodeExecutionRequest message
+message GetNodeExecutionRequest {
+  string execution_id = 1;
+  string node_id = 2;
+}
+
+// ListNodeExecutionsRequest message
+message ListNodeExecutionsRequest {
+  string execution_id = 1;
+  ExecutionStatus status = 2;
+}
+
+// ListNodeExecutionsResponse message
+message ListNodeExecutionsResponse {
+  repeated NodeExecution node_executions = 1;
+}
+
+// GetExecutionMetricsRequest message
+message GetExecutionMetricsRequest {
+  string workflow_id = 1;
+  google.protobuf.Timestamp start_date = 2;
+  google.protobuf.Timestamp end_date = 3;
+}

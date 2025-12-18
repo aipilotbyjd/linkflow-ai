@@ -1,0 +1,126 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'linkflow-monitor'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+    metrics_path: /metrics
+
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['host.docker.internal:8001']
+    metrics_path: /metrics
+
+  # User Service
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['host.docker.internal:8002']
+    metrics_path: /metrics
+
+  # Execution Service
+  - job_name: 'execution-service'
+    static_configs:
+      - targets: ['host.docker.internal:8003']
+    metrics_path: /metrics
+
+  # Workflow Service
+  - job_name: 'workflow-service'
+    static_configs:
+      - targets: ['host.docker.internal:8004']
+    metrics_path: /metrics
+
+  # Node Service
+  - job_name: 'node-service'
+    static_configs:
+      - targets: ['host.docker.internal:8005']
+    metrics_path: /metrics
+
+  # Schedule Service
+  - job_name: 'schedule-service'
+    static_configs:
+      - targets: ['host.docker.internal:8006']
+    metrics_path: /metrics
+
+  # Webhook Service
+  - job_name: 'webhook-service'
+    static_configs:
+      - targets: ['host.docker.internal:8007']
+    metrics_path: /metrics
+
+  # Notification Service
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['host.docker.internal:8008']
+    metrics_path: /metrics
+
+  # Analytics Service
+  - job_name: 'analytics-service'
+    static_configs:
+      - targets: ['host.docker.internal:8009']
+    metrics_path: /metrics
+
+  # Search Service
+  - job_name: 'search-service'
+    static_configs:
+      - targets: ['host.docker.internal:8010']
+    metrics_path: /metrics
+
+  # Storage Service
+  - job_name: 'storage-service'
+    static_configs:
+      - targets: ['host.docker.internal:8011']
+    metrics_path: /metrics
+
+  # Integration Service
+  - job_name: 'integration-service'
+    static_configs:
+      - targets: ['host.docker.internal:8012']
+    metrics_path: /metrics
+
+  # Monitoring Service
+  - job_name: 'monitoring-service'
+    static_configs:
+      - targets: ['host.docker.internal:8013']
+    metrics_path: /metrics
+
+  # Config Service
+  - job_name: 'config-service'
+    static_configs:
+      - targets: ['host.docker.internal:8014']
+    metrics_path: /metrics
+
+  # Migration Service
+  - job_name: 'migration-service'
+    static_configs:
+      - targets: ['host.docker.internal:8015']
+    metrics_path: /metrics
+
+  # Backup Service
+  - job_name: 'backup-service'
+    static_configs:
+      - targets: ['host.docker.internal:8016']
+    metrics_path: /metrics
+
+  # Admin Service
+  - job_name: 'admin-service'
+    static_configs:
+      - targets: ['host.docker.internal:8017']
+    metrics_path: /metrics

@@ -1,0 +1,213 @@
+syntax = "proto3";
+
+package linkflow.auth.v1;
+
+option go_package = "github.com/linkflow-ai/linkflow-ai/api/grpc/auth/v1;authpb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// AuthService provides authentication and authorization operations
+service AuthService {
+  // Register a new user
+  rpc Register(RegisterRequest) returns (AuthResponse);
+  
+  // Login with email and password
+  rpc Login(LoginRequest) returns (AuthResponse);
+  
+  // Refresh access token
+  rpc RefreshToken(RefreshTokenRequest) returns (AuthResponse);
+  
+  // Logout and invalidate session
+  rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
+  
+  // Get current authenticated user
+  rpc GetCurrentUser(google.protobuf.Empty) returns (User);
+  
+  // Verify token validity
+  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+  
+  // Change password
+  rpc ChangePassword(ChangePasswordRequest) returns (google.protobuf.Empty);
+  
+  // Request password reset
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (google.protobuf.Empty);
+  
+  // Reset password with token
+  rpc ResetPassword(ResetPasswordRequest) returns (google.protobuf.Empty);
+  
+  // Enable MFA
+  rpc EnableMFA(EnableMFARequest) returns (EnableMFAResponse);
+  
+  // Verify MFA
+  rpc VerifyMFA(VerifyMFARequest) returns (AuthResponse);
+  
+  // Disable MFA
+  rpc DisableMFA(DisableMFARequest) returns (google.protobuf.Empty);
+  
+  // List active sessions
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  
+  // Revoke session
+  rpc RevokeSession(RevokeSessionRequest) returns (google.protobuf.Empty);
+  
+  // Revoke all sessions
+  rpc RevokeAllSessions(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+// User message
+message User {
+  string id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string organization_id = 5;
+  repeated string roles = 6;
+  UserStatus status = 7;
+  bool mfa_enabled = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp last_login_at = 11;
+}
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_PENDING = 1;
+  USER_STATUS_ACTIVE = 2;
+  USER_STATUS_INACTIVE = 3;
+  USER_STATUS_LOCKED = 4;
+}
+
+// Tokens message
+message Tokens {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+  string token_type = 4;
+}
+
+// Session message
+message Session {
+  string id = 1;
+  string user_id = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp last_activity = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  bool current = 8;
+}
+
+// RegisterRequest message
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string organization_name = 5;
+  string invite_code = 6;
+}
+
+// LoginRequest message
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  bool remember_me = 3;
+  string mfa_code = 4;
+}
+
+// AuthResponse message
+message AuthResponse {
+  User user = 1;
+  Tokens tokens = 2;
+  bool requires_mfa = 3;
+  string mfa_token = 4;
+}
+
+// RefreshTokenRequest message
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+// LogoutRequest message
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+// VerifyTokenRequest message
+message VerifyTokenRequest {
+  string token = 1;
+}
+
+// VerifyTokenResponse message
+message VerifyTokenResponse {
+  bool valid = 1;
+  User user = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// ChangePasswordRequest message
+message ChangePasswordRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+// RequestPasswordResetRequest message
+message RequestPasswordResetRequest {
+  string email = 1;
+}
+
+// ResetPasswordRequest message
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+// EnableMFARequest message
+message EnableMFARequest {
+  MFAType type = 1;
+  string phone_number = 2; // For SMS MFA
+}
+
+enum MFAType {
+  MFA_TYPE_UNSPECIFIED = 0;
+  MFA_TYPE_TOTP = 1;
+  MFA_TYPE_SMS = 2;
+  MFA_TYPE_EMAIL = 3;
+}
+
+// EnableMFAResponse message
+message EnableMFAResponse {
+  string secret = 1;
+  string qr_code = 2;
+  repeated string backup_codes = 3;
+}
+
+// VerifyMFARequest message
+message VerifyMFARequest {
+  string mfa_token = 1;
+  string code = 2;
+}
+
+// DisableMFARequest message
+message DisableMFARequest {
+  string password = 1;
+  string code = 2;
+}
+
+// ListSessionsRequest message
+message ListSessionsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+// ListSessionsResponse message
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+  int32 total_count = 2;
+}
+
+// RevokeSessionRequest message
+message RevokeSessionRequest {
+  string session_id = 1;
+}

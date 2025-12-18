@@ -1,0 +1,247 @@
+syntax = "proto3";
+
+package linkflow.notification.v1;
+
+option go_package = "github.com/linkflow-ai/linkflow-ai/api/grpc/notification/v1;notificationpb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+
+// NotificationService provides notification management operations
+service NotificationService {
+  // Send a notification
+  rpc SendNotification(SendNotificationRequest) returns (Notification);
+  
+  // Send bulk notifications
+  rpc SendBulkNotifications(SendBulkNotificationsRequest) returns (SendBulkNotificationsResponse);
+  
+  // Get notification by ID
+  rpc GetNotification(GetNotificationRequest) returns (Notification);
+  
+  // List notifications
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  
+  // Mark notification as read
+  rpc MarkAsRead(MarkAsReadRequest) returns (Notification);
+  
+  // Mark all notifications as read
+  rpc MarkAllAsRead(google.protobuf.Empty) returns (MarkAllAsReadResponse);
+  
+  // Delete notification
+  rpc DeleteNotification(DeleteNotificationRequest) returns (google.protobuf.Empty);
+  
+  // Get unread count
+  rpc GetUnreadCount(google.protobuf.Empty) returns (GetUnreadCountResponse);
+  
+  // Stream notifications (real-time)
+  rpc StreamNotifications(StreamNotificationsRequest) returns (stream Notification);
+  
+  // Update notification preferences
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (NotificationPreferences);
+  
+  // Get notification preferences
+  rpc GetPreferences(google.protobuf.Empty) returns (NotificationPreferences);
+}
+
+// Notification message
+message Notification {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+  string message = 4;
+  NotificationType type = 5;
+  NotificationPriority priority = 6;
+  repeated NotificationChannel channels = 7;
+  NotificationStatus status = 8;
+  bool read = 9;
+  google.protobuf.Timestamp read_at = 10;
+  google.protobuf.Struct metadata = 11;
+  string action_url = 12;
+  string action_text = 13;
+  google.protobuf.Timestamp expires_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+  repeated ChannelDelivery deliveries = 16;
+}
+
+// NotificationType enum
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_TYPE_INFO = 1;
+  NOTIFICATION_TYPE_SUCCESS = 2;
+  NOTIFICATION_TYPE_WARNING = 3;
+  NOTIFICATION_TYPE_ERROR = 4;
+  NOTIFICATION_TYPE_SYSTEM = 5;
+  NOTIFICATION_TYPE_WORKFLOW = 6;
+  NOTIFICATION_TYPE_EXECUTION = 7;
+  NOTIFICATION_TYPE_SECURITY = 8;
+}
+
+// NotificationPriority enum
+enum NotificationPriority {
+  NOTIFICATION_PRIORITY_UNSPECIFIED = 0;
+  NOTIFICATION_PRIORITY_LOW = 1;
+  NOTIFICATION_PRIORITY_NORMAL = 2;
+  NOTIFICATION_PRIORITY_HIGH = 3;
+  NOTIFICATION_PRIORITY_URGENT = 4;
+}
+
+// NotificationChannel enum
+enum NotificationChannel {
+  NOTIFICATION_CHANNEL_UNSPECIFIED = 0;
+  NOTIFICATION_CHANNEL_IN_APP = 1;
+  NOTIFICATION_CHANNEL_EMAIL = 2;
+  NOTIFICATION_CHANNEL_SMS = 3;
+  NOTIFICATION_CHANNEL_SLACK = 4;
+  NOTIFICATION_CHANNEL_DISCORD = 5;
+  NOTIFICATION_CHANNEL_TEAMS = 6;
+  NOTIFICATION_CHANNEL_WEBHOOK = 7;
+  NOTIFICATION_CHANNEL_PUSH = 8;
+}
+
+// NotificationStatus enum
+enum NotificationStatus {
+  NOTIFICATION_STATUS_UNSPECIFIED = 0;
+  NOTIFICATION_STATUS_PENDING = 1;
+  NOTIFICATION_STATUS_SENT = 2;
+  NOTIFICATION_STATUS_DELIVERED = 3;
+  NOTIFICATION_STATUS_FAILED = 4;
+  NOTIFICATION_STATUS_EXPIRED = 5;
+}
+
+// ChannelDelivery message
+message ChannelDelivery {
+  NotificationChannel channel = 1;
+  NotificationStatus status = 2;
+  google.protobuf.Timestamp sent_at = 3;
+  google.protobuf.Timestamp delivered_at = 4;
+  string error = 5;
+  int32 retry_count = 6;
+}
+
+// NotificationPreferences message
+message NotificationPreferences {
+  string user_id = 1;
+  bool email_enabled = 2;
+  bool sms_enabled = 3;
+  bool push_enabled = 4;
+  bool in_app_enabled = 5;
+  bool slack_enabled = 6;
+  DigestFrequency digest_frequency = 7;
+  repeated NotificationType muted_types = 8;
+  QuietHours quiet_hours = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// DigestFrequency enum
+enum DigestFrequency {
+  DIGEST_FREQUENCY_UNSPECIFIED = 0;
+  DIGEST_FREQUENCY_REALTIME = 1;
+  DIGEST_FREQUENCY_HOURLY = 2;
+  DIGEST_FREQUENCY_DAILY = 3;
+  DIGEST_FREQUENCY_WEEKLY = 4;
+  DIGEST_FREQUENCY_NONE = 5;
+}
+
+// QuietHours message
+message QuietHours {
+  bool enabled = 1;
+  string start_time = 2; // HH:MM format
+  string end_time = 3;   // HH:MM format
+  string timezone = 4;
+  repeated int32 days = 5; // 0-6, Sunday=0
+}
+
+// SendNotificationRequest message
+message SendNotificationRequest {
+  string user_id = 1;
+  string title = 2;
+  string message = 3;
+  NotificationType type = 4;
+  NotificationPriority priority = 5;
+  repeated NotificationChannel channels = 6;
+  google.protobuf.Struct metadata = 7;
+  string action_url = 8;
+  string action_text = 9;
+  google.protobuf.Timestamp expires_at = 10;
+  string template_id = 11;
+  map<string, string> template_vars = 12;
+}
+
+// SendBulkNotificationsRequest message
+message SendBulkNotificationsRequest {
+  repeated string user_ids = 1;
+  string title = 2;
+  string message = 3;
+  NotificationType type = 4;
+  NotificationPriority priority = 5;
+  repeated NotificationChannel channels = 6;
+  google.protobuf.Struct metadata = 7;
+}
+
+// SendBulkNotificationsResponse message
+message SendBulkNotificationsResponse {
+  int32 total_sent = 1;
+  int32 total_failed = 2;
+  repeated string failed_user_ids = 3;
+}
+
+// GetNotificationRequest message
+message GetNotificationRequest {
+  string id = 1;
+}
+
+// ListNotificationsRequest message
+message ListNotificationsRequest {
+  NotificationType type = 1;
+  bool unread_only = 2;
+  NotificationPriority min_priority = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+// ListNotificationsResponse message
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  int32 total_count = 2;
+  int32 unread_count = 3;
+}
+
+// MarkAsReadRequest message
+message MarkAsReadRequest {
+  string id = 1;
+}
+
+// MarkAllAsReadResponse message
+message MarkAllAsReadResponse {
+  int32 marked_count = 1;
+}
+
+// DeleteNotificationRequest message
+message DeleteNotificationRequest {
+  string id = 1;
+}
+
+// GetUnreadCountResponse message
+message GetUnreadCountResponse {
+  int32 count = 1;
+  map<string, int32> count_by_type = 2;
+}
+
+// StreamNotificationsRequest message
+message StreamNotificationsRequest {
+  repeated NotificationType types = 1;
+  NotificationPriority min_priority = 2;
+}
+
+// UpdatePreferencesRequest message
+message UpdatePreferencesRequest {
+  bool email_enabled = 1;
+  bool sms_enabled = 2;
+  bool push_enabled = 3;
+  bool in_app_enabled = 4;
+  bool slack_enabled = 5;
+  DigestFrequency digest_frequency = 6;
+  repeated NotificationType muted_types = 7;
+  QuietHours quiet_hours = 8;
+}
