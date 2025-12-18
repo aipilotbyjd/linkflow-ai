@@ -1,0 +1,53 @@
+# Air configuration for hot reload during development
+
+root = "."
+tmp_dir = ".air"
+
+[build]
+# Binary name
+bin = "./tmp/main"
+# Command to run
+cmd = "go build -o ./tmp/main ./cmd/services/workflow/main.go"
+# Delay after change detected
+delay = 1000
+# Exclude these directories
+exclude_dir = ["assets", "tmp", "vendor", "node_modules", "deployments", "scripts", "tests", "docs"]
+# Exclude these files
+exclude_file = []
+# Exclude files matching regex
+exclude_regex = ["_test.go", ".*\\.md"]
+# Exclude unchanged files
+exclude_unchanged = false
+# Follow symbolic links
+follow_symlink = false
+# This log file will be created by air
+log = "build-errors.log"
+# Poll mode
+poll = false
+# Poll interval
+poll_interval = 0
+# Kill running process before build
+kill_delay = "0s"
+# Send SIGKILL after SIGTERM
+send_interrupt = false
+# Delay after sending SIGTERM before SIGKILL
+stop_on_error = true
+# Include these file extensions
+include_ext = ["go", "tpl", "tmpl", "html", "yaml", "yml", "toml", "env"]
+# Include these directories
+include_dir = []
+
+[color]
+# Customize colors
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[log]
+# Show time in logs
+time = false
+
+[misc]
+# Clean tmp dir on exit
+clean_on_exit = true
