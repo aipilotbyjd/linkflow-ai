@@ -123,7 +123,7 @@
 - User activity tracking
 - Invitation system
 
-#### 3. Tenant Service (Port 8003)
+#### 3. Tenant Service (Port 8006)
 **Responsibilities:**
 - Multi-tenancy management
 - Tenant isolation
@@ -144,7 +144,7 @@
 - Workflow validation
 - DAG management
 
-#### 5. Execution Service (Port 8005)
+#### 5. Execution Service (Port 8003)
 **Responsibilities:**
 - Execution orchestration
 - State management
@@ -154,7 +154,7 @@
 - Execution metrics
 - Resource allocation
 
-#### 6. Node Service (Port 8006)
+#### 6. Node Service (Port 8005)
 **Responsibilities:**
 - Node registry
 - Custom node management
@@ -167,12 +167,16 @@
 #### 7. Executor Service (Port 8007)
 **Responsibilities:**
 - Actual node execution
-- Sandboxed environments
-- Resource limits
+- Sandboxed environments (V8 Isolates / WebAssembly / Firecracker)
+- Resource limits (CPU, Memory, Network)
 - Timeout management
 - Parallel execution
 - Node communication
 - Data transformation
+
+**Sandboxing Strategy:**
+- **Code Nodes (JS/Python):** Executed in isolated runtime environments (e.g., V8 Isolates or gVisor-sandboxed containers) to prevent unauthorized access to host resources.
+- **System Nodes:** Executed within the service context but with strict timeout and memory contexts.
 
 #### 8. Webhook Service (Port 8008)
 **Responsibilities:**
@@ -639,6 +643,19 @@ CREATE SCHEMA read_models;
 -- Event store for event sourcing
 CREATE SCHEMA event_store;
 ```
+
+### Data Flow Strategy (Large Payloads)
+
+#### Claim Check Pattern
+To handle large workflow data (e.g., JSON arrays > 1MB, binary files) efficiently:
+1. **Payload > Threshold (e.g., 1MB):**
+   - Store payload in Object Storage (MinIO/S3).
+   - Generate a reference ID (Claim Check).
+   - Pass the reference ID in the Event/Message.
+2. **Payload < Threshold:**
+   - Pass payload directly in the Event/Message.
+
+This ensures the Message Bus (Kafka) and Database (Postgres) remain performant and are not clogged with blob data.
 
 ### CQRS Implementation
 
@@ -1370,3 +1387,26 @@ This architecture provides:
 7. **Maintainability**: Clean architecture, DDD, SOLID principles, testing
 
 The architecture is designed to handle millions of workflows and billions of executions while maintaining sub-second response times and 99.9% availability.
+
+## Roadmap to Production
+
+To realize this architecture from the current state, the following phases are recommended:
+
+1. **Foundation (Current)**:
+   - Core services (Auth, User, Workflow, Execution, Node) implemented.
+   - Basic REST communication and Database persistence established.
+
+2. **Interconnectivity & Resilience**:
+   - Implement gRPC for synchronous inter-service communication.
+   - Fully integrate Kafka for asynchronous event-driven flows.
+   - Implement the "Executor Service" with robust sandboxing.
+
+3. **Scalability & Security**:
+   - Deploy API Gateway (Kong/Envoy).
+   - Implement Circuit Breakers and Rate Limiting.
+   - Introduce Object Storage for large payload handling (Claim Check pattern).
+
+4. **Production Readiness**:
+   - Achieve >85% Test Coverage (Unit, Integration, E2E).
+   - Deploy Monitoring & Observability stack (Prometheus, Grafana, Jaeger).
+   - Finalize Kubernetes manifests and CI/CD pipelines.
