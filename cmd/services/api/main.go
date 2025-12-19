@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,25 +21,33 @@ import (
 
 	"github.com/linkflow-ai/linkflow-ai/internal/engine"
 	"github.com/linkflow-ai/linkflow-ai/internal/node/runtime"
+	"github.com/linkflow-ai/linkflow-ai/internal/platform/di"
 	"github.com/linkflow-ai/linkflow-ai/pkg/middleware"
 )
 
 // Config holds server configuration
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	JWTSecret      string
-	StripeKey      string
-	WebhookSecret  string
-	Environment    string
+	Port            string
+	DatabaseURL     string
+	JWTSecret       string
+	StripeKey       string
+	WebhookSecret   string
+	Environment     string
+	RateLimitPerMin int
+	AllowedOrigins  []string
 }
 
 func main() {
 	// Load configuration
 	cfg := loadConfig()
 
+	// Initialize DI container
+	container := initContainer(cfg)
+	defer container.Close(context.Background())
+
 	// Initialize workflow engine
 	workflowEngine := engine.NewEngine()
+	container.Register(di.ServiceEngine, workflowEngine)
 
 	// Create router
 	router := mux.NewRouter()
@@ -61,15 +70,8 @@ func main() {
 		listExecutionsHandler(w, r, workflowEngine)
 	}).Methods("GET")
 
-	// Apply CORS middleware
-	corsConfig := &middleware.CORSConfig{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowedHeaders: []string{"*"},
-	}
-	handler := middleware.CORS(corsConfig)(router)
-
-	_ = cfg // Use config later for full wiring
+	// Build middleware chain
+	handler := buildMiddlewareChain(router, cfg)
 
 	// Create server
 	server := &http.Server{
@@ -82,7 +84,7 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Printf("Starting server on port %s", cfg.Port)
+		log.Printf("Starting API server on port %s (env: %s)", cfg.Port, cfg.Environment)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}
@@ -106,14 +108,90 @@ func main() {
 	log.Println("Server stopped")
 }
 
+// initContainer initializes the DI container with all services
+func initContainer(cfg Config) *di.Container {
+	container := di.New()
+
+	// Register config
+	container.Register(di.ServiceConfig, cfg)
+
+	// Register factories for lazy initialization
+
+	// Database (would connect when first accessed)
+	container.RegisterFactory(di.ServiceDB, func(c *di.Container) (interface{}, error) {
+		// In production, return actual DB connection
+		// db, err := database.New(cfg.DatabaseURL)
+		log.Println("Database service initialized")
+		return nil, nil
+	})
+
+	// Cache (Redis or in-memory)
+	container.RegisterFactory(di.ServiceCache, func(c *di.Container) (interface{}, error) {
+		log.Println("Cache service initialized")
+		return nil, nil
+	})
+
+	// Event bus
+	container.RegisterFactory(di.ServiceEventBus, func(c *di.Container) (interface{}, error) {
+		log.Println("Event bus initialized")
+		return nil, nil
+	})
+
+	return container
+}
+
+// buildMiddlewareChain builds the middleware stack
+func buildMiddlewareChain(router *mux.Router, cfg Config) http.Handler {
+	var handler http.Handler = router
+
+	// CORS middleware (should be outermost for preflight)
+	corsConfig := &middleware.CORSConfig{
+		AllowedOrigins:   cfg.AllowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-API-Key"},
+		ExposedHeaders:   []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining"},
+		AllowCredentials: true,
+		MaxAge:           86400,
+	}
+	handler = middleware.CORS(corsConfig)(handler)
+
+	// Rate limiting middleware
+	rateLimitConfig := &middleware.RateLimitConfig{
+		RequestsPerMinute: cfg.RateLimitPerMin,
+		BurstSize:         cfg.RateLimitPerMin * 2,
+		SkipPaths:         []string{"/health", "/api/v1/health"},
+	}
+	handler = middleware.RateLimit(rateLimitConfig)(handler)
+
+	// Request ID middleware
+	handler = middleware.RequestID(handler)
+
+	// Recovery middleware (must be innermost to catch panics)
+	handler = middleware.SimpleRecovery(handler)
+
+	return handler
+}
+
 func loadConfig() Config {
+	allowedOrigins := strings.Split(getEnv("ALLOWED_ORIGINS", "*"), ",")
+	for i := range allowedOrigins {
+		allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+	}
+
+	rateLimitPerMin := 100
+	if val := os.Getenv("RATE_LIMIT_PER_MIN"); val != "" {
+		fmt.Sscanf(val, "%d", &rateLimitPerMin)
+	}
+
 	return Config{
-		Port:          getEnv("PORT", "8080"),
-		DatabaseURL:   getEnv("DATABASE_URL", "postgres://localhost:5432/linkflow?sslmode=disable"),
-		JWTSecret:     getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
-		StripeKey:     getEnv("STRIPE_SECRET_KEY", ""),
-		WebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
-		Environment:   getEnv("ENVIRONMENT", "development"),
+		Port:            getEnv("PORT", "8080"),
+		DatabaseURL:     getEnv("DATABASE_URL", "postgres://localhost:5432/linkflow?sslmode=disable"),
+		JWTSecret:       getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		StripeKey:       getEnv("STRIPE_SECRET_KEY", ""),
+		WebhookSecret:   getEnv("STRIPE_WEBHOOK_SECRET", ""),
+		Environment:     getEnv("ENVIRONMENT", "development"),
+		RateLimitPerMin: rateLimitPerMin,
+		AllowedOrigins:  allowedOrigins,
 	}
 }
 
