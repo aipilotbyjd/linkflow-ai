@@ -138,6 +138,13 @@ func RateLimit(config *RateLimitConfig) func(http.Handler) http.Handler {
 		config = DefaultRateLimitConfig()
 	}
 
+	// Ensure KeyFunc is set
+	if config.KeyFunc == nil {
+		config.KeyFunc = func(r *http.Request) string {
+			return getClientIP(r)
+		}
+	}
+
 	limiter := NewRateLimiter(config)
 
 	excludedIPs := make(map[string]bool)

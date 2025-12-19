@@ -1,0 +1,2317 @@
+{
+	"info": {
+		"_postman_id": "linkflow-ai-collection",
+		"name": "LinkFlow AI - Workflow Automation Platform",
+		"description": "Complete API collection for LinkFlow AI - a production-ready workflow automation platform (n8n/Zapier alternative) built in Go.\n\n## Setup Instructions\n\n1. Import this collection into Postman\n2. Create an environment with these variables:\n   - `baseUrl`: http://localhost:8080\n   - `accessToken`: (will be set after login)\n   - `refreshToken`: (will be set after login)\n   - `workspaceId`: (will be set after workspace creation)\n\n## Authentication\n\nMost endpoints require Bearer token authentication. After logging in, the access token will be automatically saved to the environment variable.\n\n## Rate Limiting\n\nDefault: 100 requests per minute. Rate limit headers:\n- X-RateLimit-Limit\n- X-RateLimit-Remaining",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health & Info",
+			"description": "Health checks and system information endpoints",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						}
+					}
+				},
+				{
+					"name": "API Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "health"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"description": "User authentication and session management",
+			"item": [
+				{
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.tokens) {",
+									"        pm.environment.set('accessToken', response.tokens.accessToken);",
+									"        pm.environment.set('refreshToken', response.tokens.refreshToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"SecurePassword123!\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"organizationName\": \"Acme Corp\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "register"]
+						}
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.tokens) {",
+									"        pm.environment.set('accessToken', response.tokens.accessToken);",
+									"        pm.environment.set('refreshToken', response.tokens.refreshToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"SecurePassword123!\",\n    \"rememberMe\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.tokens) {",
+									"        pm.environment.set('accessToken', response.tokens.accessToken);",
+									"        pm.environment.set('refreshToken', response.tokens.refreshToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						}
+					}
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "me"]
+						}
+					}
+				},
+				{
+					"name": "List Sessions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/sessions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "sessions"]
+						}
+					}
+				},
+				{
+					"name": "Revoke Session",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/sessions/:sessionId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "sessions", ":sessionId"],
+							"variable": [
+								{
+									"key": "sessionId",
+									"value": "{{sessionId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 204) {",
+									"    pm.environment.unset('accessToken');",
+									"    pm.environment.unset('refreshToken');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Users & Organizations",
+			"description": "User management and organization operations",
+			"item": [
+				{
+					"name": "Users",
+					"item": [
+						{
+							"name": "List Users",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users?page=1&limit=20&search=",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users"],
+									"query": [
+										{"key": "page", "value": "1"},
+										{"key": "limit", "value": "20"},
+										{"key": "search", "value": ""}
+									]
+								}
+							}
+						},
+						{
+							"name": "Create User",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"name\": \"New User\",\n    \"password\": \"SecurePass123!\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users"]
+								}
+							}
+						},
+						{
+							"name": "Get User by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users/:userId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users", ":userId"],
+									"variable": [
+										{"key": "userId", "value": "{{userId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Update User",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Name\",\n    \"avatar\": \"https://example.com/avatar.png\",\n    \"preferences\": {\n        \"theme\": \"dark\",\n        \"notifications\": true\n    }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users/:userId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users", ":userId"],
+									"variable": [
+										{"key": "userId", "value": "{{userId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Delete User",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users/:userId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users", ":userId"],
+									"variable": [
+										{"key": "userId", "value": "{{userId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Get My Profile",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users/me",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users", "me"]
+								}
+							}
+						},
+						{
+							"name": "Get User Roles",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users/:userId/roles",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users", ":userId", "roles"],
+									"variable": [
+										{"key": "userId", "value": "{{userId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Update User Roles",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"roleIds\": [\"role-uuid-1\", \"role-uuid-2\"]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/users/:userId/roles",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "users", ":userId", "roles"],
+									"variable": [
+										{"key": "userId", "value": "{{userId}}"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Organizations",
+					"item": [
+						{
+							"name": "List Organizations",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations"]
+								}
+							}
+						},
+						{
+							"name": "Create Organization",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"My Organization\",\n    \"slug\": \"my-org\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations"]
+								}
+							}
+						},
+						{
+							"name": "List Organization Members",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/:orgId/members",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", ":orgId", "members"],
+									"variable": [
+										{"key": "orgId", "value": "{{organizationId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Add Organization Member",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"userId\": \"user-uuid\",\n    \"role\": \"member\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/:orgId/members",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", ":orgId", "members"],
+									"variable": [
+										{"key": "orgId", "value": "{{organizationId}}"}
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Workspaces",
+			"description": "Workspace management and multi-tenancy",
+			"item": [
+				{
+					"name": "Workspace CRUD",
+					"item": [
+						{
+							"name": "List Workspaces",
+							"request": {
+								"method": "GET",
+								"header": [
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces"]
+								}
+							}
+						},
+						{
+							"name": "Create Workspace",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    pm.environment.set('workspaceId', response.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"My Workspace\",\n    \"slug\": \"my-workspace\",\n    \"description\": \"Main workspace for automation workflows\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces"]
+								}
+							}
+						},
+						{
+							"name": "Get Workspace",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/:workspaceId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", ":workspaceId"],
+									"variable": [
+										{"key": "workspaceId", "value": "{{workspaceId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Update Workspace",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Workspace Name\",\n    \"description\": \"Updated description\",\n    \"settings\": {\n        \"defaultTimezone\": \"America/New_York\",\n        \"notificationsEnabled\": true\n    }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/:workspaceId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", ":workspaceId"],
+									"variable": [
+										{"key": "workspaceId", "value": "{{workspaceId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Delete Workspace",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/:workspaceId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", ":workspaceId"],
+									"variable": [
+										{"key": "workspaceId", "value": "{{workspaceId}}"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Members",
+					"item": [
+						{
+							"name": "List Workspace Members",
+							"request": {
+								"method": "GET",
+								"header": [
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/members",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", "members"]
+								}
+							}
+						},
+						{
+							"name": "Invite Member",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"newmember@example.com\",\n    \"role\": \"member\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/:workspaceId/members",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", ":workspaceId", "members"],
+									"variable": [
+										{"key": "workspaceId", "value": "{{workspaceId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Update Member Role",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"role\": \"admin\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/:workspaceId/members/:memberId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", ":workspaceId", "members", ":memberId"],
+									"variable": [
+										{"key": "workspaceId", "value": "{{workspaceId}}"},
+										{"key": "memberId", "value": "{{memberId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Remove Member",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/:workspaceId/members/:memberId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", ":workspaceId", "members", ":memberId"],
+									"variable": [
+										{"key": "workspaceId", "value": "{{workspaceId}}"},
+										{"key": "memberId", "value": "{{memberId}}"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Invitations",
+					"item": [
+						{
+							"name": "Accept Invitation",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-User-ID", "value": "{{userId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"token\": \"invitation-token\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/invitations/accept",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "invitations", "accept"]
+								}
+							}
+						},
+						{
+							"name": "Decline Invitation",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"token\": \"invitation-token\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/invitations/decline",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "invitations", "decline"]
+								}
+							}
+						},
+						{
+							"name": "Get Pending Invitations",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/invitations/pending?email=user@example.com",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "invitations", "pending"],
+									"query": [
+										{"key": "email", "value": "user@example.com"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Audit Logs",
+					"item": [
+						{
+							"name": "Get Workspace Audit Logs",
+							"request": {
+								"method": "GET",
+								"header": [
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workspaces/audit-logs?offset=0&limit=50",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workspaces", "audit-logs"],
+									"query": [
+										{"key": "offset", "value": "0"},
+										{"key": "limit", "value": "50"}
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Workflows",
+			"description": "Workflow CRUD and management operations",
+			"item": [
+				{
+					"name": "CRUD",
+					"item": [
+						{
+							"name": "List Workflows",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows?page=1&pageSize=20&status=&sortBy=updated_at&sortOrder=desc",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows"],
+									"query": [
+										{"key": "page", "value": "1"},
+										{"key": "pageSize", "value": "20"},
+										{"key": "status", "value": ""},
+										{"key": "sortBy", "value": "updated_at"},
+										{"key": "sortOrder", "value": "desc"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Create Workflow",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    pm.environment.set('workflowId', response.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"My First Workflow\",\n    \"description\": \"A sample workflow to get started\",\n    \"nodes\": [\n        {\n            \"id\": \"trigger_1\",\n            \"type\": \"trigger\",\n            \"name\": \"Manual Trigger\",\n            \"config\": {},\n            \"position\": {\"x\": 100, \"y\": 100}\n        },\n        {\n            \"id\": \"action_1\",\n            \"type\": \"action\",\n            \"name\": \"HTTP Request\",\n            \"config\": {\n                \"url\": \"https://api.example.com/data\",\n                \"method\": \"GET\"\n            },\n            \"position\": {\"x\": 300, \"y\": 100}\n        }\n    ],\n    \"connections\": [\n        {\n            \"id\": \"conn_1\",\n            \"sourceNodeId\": \"trigger_1\",\n            \"targetNodeId\": \"action_1\"\n        }\n    ],\n    \"settings\": {\n        \"maxExecutionTime\": 300,\n        \"errorHandling\": \"stop\"\n    },\n    \"tags\": [\"sample\", \"demo\"]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows"]
+								}
+							}
+						},
+						{
+							"name": "Get Workflow",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Update Workflow",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Workflow Name\",\n    \"description\": \"Updated description\",\n    \"tags\": [\"updated\", \"production\"]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Delete Workflow",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Actions",
+					"item": [
+						{
+							"name": "Activate Workflow",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/activate",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "activate"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Deactivate Workflow",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/deactivate",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "deactivate"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Archive Workflow",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/archive",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "archive"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Clone Workflow",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Cloned Workflow\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/clone",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "clone"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Execute Workflow",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    pm.environment.set('executionId', response.executionId);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"input\": {\n        \"key\": \"value\"\n    },\n    \"context\": {},\n    \"async\": false\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/execute",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "execute"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Nodes",
+					"item": [
+						{
+							"name": "Add Node to Workflow",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"id\": \"new_node_1\",\n    \"type\": \"action\",\n    \"name\": \"Send Email\",\n    \"config\": {\n        \"to\": \"recipient@example.com\",\n        \"subject\": \"Notification\",\n        \"body\": \"Hello from LinkFlow!\"\n    },\n    \"position\": {\"x\": 500, \"y\": 100}\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/nodes",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "nodes"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Update Node",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"id\": \"new_node_1\",\n    \"type\": \"action\",\n    \"name\": \"Updated Node Name\",\n    \"config\": {\n        \"to\": \"updated@example.com\"\n    },\n    \"position\": {\"x\": 500, \"y\": 150}\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/nodes/:nodeId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "nodes", ":nodeId"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"},
+										{"key": "nodeId", "value": "new_node_1"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Remove Node",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/nodes/:nodeId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "nodes", ":nodeId"],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"},
+										{"key": "nodeId", "value": "new_node_1"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Versions",
+					"item": [
+						{
+							"name": "List Workflow Versions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/workflows/:workflowId/versions?page=1&pageSize=20",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "workflows", ":workflowId", "versions"],
+									"query": [
+										{"key": "page", "value": "1"},
+										{"key": "pageSize", "value": "20"}
+									],
+									"variable": [
+										{"key": "workflowId", "value": "{{workflowId}}"}
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Executions",
+			"description": "Workflow execution tracking and management",
+			"item": [
+				{
+					"name": "List Executions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions?workflowId={{workflowId}}&status=&page=1&limit=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions"],
+							"query": [
+								{"key": "workflowId", "value": "{{workflowId}}"},
+								{"key": "status", "value": ""},
+								{"key": "page", "value": "1"},
+								{"key": "limit", "value": "20"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Start Execution",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('executionId', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"workflowId\": \"{{workflowId}}\",\n    \"inputData\": {\n        \"key\": \"value\"\n    },\n    \"priority\": \"normal\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions"]
+						}
+					}
+				},
+				{
+					"name": "Get Execution",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions/:executionId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions", ":executionId"],
+							"variable": [
+								{"key": "executionId", "value": "{{executionId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Cancel Execution",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions/:executionId/cancel",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions", ":executionId", "cancel"],
+							"variable": [
+								{"key": "executionId", "value": "{{executionId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Retry Execution",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fromNodeId\": \"node_1\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions/:executionId/retry",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions", ":executionId", "retry"],
+							"variable": [
+								{"key": "executionId", "value": "{{executionId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Node Executions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions/:executionId/nodes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions", ":executionId", "nodes"],
+							"variable": [
+								{"key": "executionId", "value": "{{executionId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Execution Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions/:executionId/logs?nodeId=&level=info",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions", ":executionId", "logs"],
+							"query": [
+								{"key": "nodeId", "value": ""},
+								{"key": "level", "value": "info"}
+							],
+							"variable": [
+								{"key": "executionId", "value": "{{executionId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Execution Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/executions/stats?workflowId={{workflowId}}&period=day",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "executions", "stats"],
+							"query": [
+								{"key": "workflowId", "value": "{{workflowId}}"},
+								{"key": "period", "value": "day"}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Nodes",
+			"description": "Node registry, custom nodes, and marketplace",
+			"item": [
+				{
+					"name": "Registry",
+					"item": [
+						{
+							"name": "List Available Nodes",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes?category=&search=",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes"],
+									"query": [
+										{"key": "category", "value": ""},
+										{"key": "search", "value": ""}
+									]
+								}
+							}
+						},
+						{
+							"name": "Get Node Details",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/:nodeType",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", ":nodeType"],
+									"variable": [
+										{"key": "nodeType", "value": "http_request"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Get Node Categories",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/categories",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", "categories"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Custom Nodes",
+					"item": [
+						{
+							"name": "List Custom Nodes",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/custom",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", "custom"]
+								}
+							}
+						},
+						{
+							"name": "Create Custom Node",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"My Custom Node\",\n    \"description\": \"A custom node for processing data\",\n    \"category\": \"transform\",\n    \"icon\": \"code\",\n    \"code\": \"module.exports = async function(input) { return { result: input.data * 2 }; }\",\n    \"runtime\": \"javascript\",\n    \"inputs\": [\n        {\n            \"name\": \"data\",\n            \"type\": \"number\",\n            \"required\": true,\n            \"description\": \"Input number to process\"\n        }\n    ],\n    \"outputs\": [\n        {\n            \"name\": \"result\",\n            \"type\": \"number\",\n            \"description\": \"Processed result\"\n        }\n    ],\n    \"isPublic\": false\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/custom",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", "custom"]
+								}
+							}
+						},
+						{
+							"name": "Update Custom Node",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Custom Node\",\n    \"description\": \"Updated description\",\n    \"code\": \"module.exports = async function(input) { return { result: input.data * 3 }; }\",\n    \"isPublic\": true\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/custom/:nodeId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", "custom", ":nodeId"],
+									"variable": [
+										{"key": "nodeId", "value": "{{customNodeId}}"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Delete Custom Node",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/custom/:nodeId",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", "custom", ":nodeId"],
+									"variable": [
+										{"key": "nodeId", "value": "{{customNodeId}}"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Marketplace",
+					"item": [
+						{
+							"name": "Browse Marketplace",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/marketplace?category=&sort=popular&page=1",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", "marketplace"],
+									"query": [
+										{"key": "category", "value": ""},
+										{"key": "sort", "value": "popular"},
+										{"key": "page", "value": "1"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Install Marketplace Node",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/nodes/marketplace/:nodeId/install",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "nodes", "marketplace", ":nodeId", "install"],
+									"variable": [
+										{"key": "nodeId", "value": "marketplace-node-uuid"}
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Schedules",
+			"description": "Cron job management and scheduling",
+			"item": [
+				{
+					"name": "List Schedules",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules?workflowId=&status=active",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules"],
+							"query": [
+								{"key": "workflowId", "value": ""},
+								{"key": "status", "value": "active"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Schedule",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('scheduleId', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Daily Report Schedule\",\n    \"workflowId\": \"{{workflowId}}\",\n    \"cronExpression\": \"0 9 * * *\",\n    \"timezone\": \"America/New_York\",\n    \"inputData\": {\n        \"reportType\": \"daily\"\n    },\n    \"retryPolicy\": {\n        \"maxRetries\": 3,\n        \"retryDelay\": 60,\n        \"backoffMultiplier\": 2\n    },\n    \"notifyOnFailure\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules"]
+						}
+					}
+				},
+				{
+					"name": "Get Schedule",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/:scheduleId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", ":scheduleId"],
+							"variable": [
+								{"key": "scheduleId", "value": "{{scheduleId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Schedule",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Schedule Name\",\n    \"cronExpression\": \"0 10 * * *\",\n    \"timezone\": \"UTC\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/:scheduleId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", ":scheduleId"],
+							"variable": [
+								{"key": "scheduleId", "value": "{{scheduleId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Schedule",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/:scheduleId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", ":scheduleId"],
+							"variable": [
+								{"key": "scheduleId", "value": "{{scheduleId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Pause Schedule",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/:scheduleId/pause",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", ":scheduleId", "pause"],
+							"variable": [
+								{"key": "scheduleId", "value": "{{scheduleId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Resume Schedule",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/:scheduleId/resume",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", ":scheduleId", "resume"],
+							"variable": [
+								{"key": "scheduleId", "value": "{{scheduleId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Trigger Schedule Manually",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/:scheduleId/trigger",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", ":scheduleId", "trigger"],
+							"variable": [
+								{"key": "scheduleId", "value": "{{scheduleId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Schedule History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/:scheduleId/history?limit=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", ":scheduleId", "history"],
+							"query": [
+								{"key": "limit", "value": "20"}
+							],
+							"variable": [
+								{"key": "scheduleId", "value": "{{scheduleId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Validate Cron Expression",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cronExpression\": \"0 9 * * 1-5\",\n    \"timezone\": \"America/New_York\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/validate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", "validate"]
+						}
+					}
+				},
+				{
+					"name": "List Timezones",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/timezones",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "timezones"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Credentials",
+			"description": "Credential management with encryption",
+			"item": [
+				{
+					"name": "List Credentials",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials"]
+						}
+					}
+				},
+				{
+					"name": "Create Credential",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('credentialId', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "X-User-ID", "value": "{{userId}}"},
+							{"key": "X-Tenant-ID", "value": "{{workspaceId}}"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"My API Key\",\n    \"type\": \"api_key\",\n    \"service\": \"openai\",\n    \"credentials\": {\n        \"api_key\": \"sk-your-api-key-here\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials"]
+						}
+					}
+				},
+				{
+					"name": "Get Credential",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials/:credentialId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials", ":credentialId"],
+							"variable": [
+								{"key": "credentialId", "value": "{{credentialId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Credential",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Credential Name\",\n    \"credentials\": {\n        \"api_key\": \"sk-new-api-key\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials/:credentialId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials", ":credentialId"],
+							"variable": [
+								{"key": "credentialId", "value": "{{credentialId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Credential",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials/:credentialId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials", ":credentialId"],
+							"variable": [
+								{"key": "credentialId", "value": "{{credentialId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Test Credential",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"type\": \"api_key\",\n    \"service\": \"openai\",\n    \"credentials\": {\n        \"api_key\": \"sk-test-key\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials/test",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials", "test"]
+						}
+					}
+				},
+				{
+					"name": "Test Credential by ID",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials/:credentialId/test",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials", ":credentialId", "test"],
+							"variable": [
+								{"key": "credentialId", "value": "{{credentialId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Refresh OAuth2 Token",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials/:credentialId/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials", ":credentialId", "refresh"],
+							"variable": [
+								{"key": "credentialId", "value": "{{credentialId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "List Credential Types",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/credentials/types",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "credentials", "types"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Integrations",
+			"description": "Third-party service integrations",
+			"item": [
+				{
+					"name": "List Integrations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations"]
+						}
+					}
+				},
+				{
+					"name": "Create Integration",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('integrationId', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "X-User-ID", "value": "{{userId}}"},
+							{"key": "X-Tenant-ID", "value": "{{workspaceId}}"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"My Slack Integration\",\n    \"service\": \"slack\",\n    \"category\": \"communication\",\n    \"config\": {\n        \"channel\": \"#general\"\n    },\n    \"credentialId\": \"{{credentialId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations"]
+						}
+					}
+				},
+				{
+					"name": "Get Integration",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations/:integrationId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations", ":integrationId"],
+							"variable": [
+								{"key": "integrationId", "value": "{{integrationId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Integration",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations/:integrationId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations", ":integrationId"],
+							"variable": [
+								{"key": "integrationId", "value": "{{integrationId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Enable Integration",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"credentials\": {\n        \"api_key\": \"your-api-key\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations/:integrationId/enable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations", ":integrationId", "enable"],
+							"variable": [
+								{"key": "integrationId", "value": "{{integrationId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Disable Integration",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations/:integrationId/disable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations", ":integrationId", "disable"],
+							"variable": [
+								{"key": "integrationId", "value": "{{integrationId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Test Integration",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations/:integrationId/test",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations", ":integrationId", "test"],
+							"variable": [
+								{"key": "integrationId", "value": "{{integrationId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "List Categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations/categories",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations", "categories"]
+						}
+					}
+				},
+				{
+					"name": "Search Integrations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "X-User-ID", "value": "{{userId}}"}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/integrations/search?q=slack",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "integrations", "search"],
+							"query": [
+								{"key": "q", "value": "slack"}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Webhooks",
+			"description": "Webhook management and triggering",
+			"item": [
+				{
+					"name": "Create Webhook",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('webhookId', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"workflowId\": \"{{workflowId}}\",\n    \"name\": \"My Webhook\",\n    \"description\": \"Webhook for external triggers\",\n    \"secret\": \"my-webhook-secret\",\n    \"enabled\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks"]
+						}
+					}
+				},
+				{
+					"name": "Get Webhook",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks/:webhookId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks", ":webhookId"],
+							"variable": [
+								{"key": "webhookId", "value": "{{webhookId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Trigger Webhook",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"event\": \"order.created\",\n    \"data\": {\n        \"orderId\": \"12345\",\n        \"amount\": 99.99\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks/:webhookId/trigger",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks", ":webhookId", "trigger"],
+							"variable": [
+								{"key": "webhookId", "value": "{{webhookId}}"}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Billing",
+			"description": "Subscription, billing, and usage management",
+			"item": [
+				{
+					"name": "Plans",
+					"item": [
+						{
+							"name": "List Plans",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/plans",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "plans"]
+								}
+							}
+						},
+						{
+							"name": "Get Plan",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/plans/:planSlug",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "plans", ":planSlug"],
+									"variable": [
+										{"key": "planSlug", "value": "pro"}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Subscription",
+					"item": [
+						{
+							"name": "Get Subscription",
+							"request": {
+								"method": "GET",
+								"header": [
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/subscription",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "subscription"]
+								}
+							}
+						},
+						{
+							"name": "Create Subscription",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"planSlug\": \"pro\",\n    \"billingCycle\": \"monthly\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/subscription",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "subscription"]
+								}
+							}
+						},
+						{
+							"name": "Cancel Subscription",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"immediate\": false\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/subscription/cancel",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "subscription", "cancel"]
+								}
+							}
+						},
+						{
+							"name": "Change Plan",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"planSlug\": \"enterprise\",\n    \"billingCycle\": \"yearly\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/subscription/change",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "subscription", "change"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Checkout & Portal",
+					"item": [
+						{
+							"name": "Create Checkout Session",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"planSlug\": \"pro\",\n    \"successUrl\": \"https://app.linkflow.ai/billing/success\",\n    \"cancelUrl\": \"https://app.linkflow.ai/billing/cancel\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/checkout",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "checkout"]
+								}
+							}
+						},
+						{
+							"name": "Create Portal Session",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"returnUrl\": \"https://app.linkflow.ai/billing\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/portal",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "portal"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Invoices & Usage",
+					"item": [
+						{
+							"name": "List Invoices",
+							"request": {
+								"method": "GET",
+								"header": [
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/invoices?limit=20&offset=0",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "invoices"],
+									"query": [
+										{"key": "limit", "value": "20"},
+										{"key": "offset", "value": "0"}
+									]
+								}
+							}
+						},
+						{
+							"name": "Get Usage",
+							"request": {
+								"method": "GET",
+								"header": [
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/usage",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "usage"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Customer",
+					"item": [
+						{
+							"name": "Get Customer",
+							"request": {
+								"method": "GET",
+								"header": [
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/customer",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "customer"]
+								}
+							}
+						},
+						{
+							"name": "Create Customer",
+							"request": {
+								"method": "POST",
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "X-Workspace-ID", "value": "{{workspaceId}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"billing@example.com\",\n    \"name\": \"Acme Corp\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/billing/customer",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "billing", "customer"]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Notifications",
+			"description": "Notification management",
+			"item": [
+				{
+					"name": "List Notifications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notifications",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "notifications"]
+						}
+					}
+				},
+				{
+					"name": "Create Notification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"type\": \"info\",\n    \"title\": \"Workflow Completed\",\n    \"message\": \"Your workflow has completed successfully.\",\n    \"data\": {\n        \"workflowId\": \"{{workflowId}}\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notifications",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "notifications"]
+						}
+					}
+				},
+				{
+					"name": "Get Notification",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notifications/:notificationId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "notifications", ":notificationId"],
+							"variable": [
+								{"key": "notificationId", "value": "{{notificationId}}"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Mark as Read",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notifications/:notificationId/read",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "notifications", ":notificationId", "read"],
+							"variable": [
+								{"key": "notificationId", "value": "{{notificationId}}"}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Direct Execution",
+			"description": "Direct workflow execution endpoint (from main.go)",
+			"item": [
+				{
+					"name": "Execute Workflow (Direct)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"workflow\": {\n        \"id\": \"test-workflow\",\n        \"name\": \"Test Workflow\",\n        \"nodes\": [\n            {\n                \"id\": \"start\",\n                \"type\": \"manual_trigger\",\n                \"name\": \"Start\"\n            },\n            {\n                \"id\": \"set_1\",\n                \"type\": \"set\",\n                \"name\": \"Set Data\",\n                \"config\": {\n                    \"values\": {\n                        \"message\": \"Hello World\"\n                    }\n                }\n            }\n        ],\n        \"connections\": [\n            {\n                \"source\": \"start\",\n                \"target\": \"set_1\"\n            }\n        ]\n    },\n    \"options\": {\n        \"mode\": \"production\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/execute",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "execute"]
+						}
+					}
+				}
+			]
+		}
+	]
+}
