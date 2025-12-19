@@ -127,6 +127,11 @@ func (s *Server) Start() error {
 	return s.httpServer.ListenAndServe()
 }
 
+// Handler returns the HTTP handler for the server
+func (s *Server) Handler() http.Handler {
+	return s.httpServer.Handler
+}
+
 // Shutdown gracefully shuts down the server
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info("Shutting down server")

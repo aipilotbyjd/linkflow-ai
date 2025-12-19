@@ -11,16 +11,17 @@ import (
 
 // Config holds all configuration for a service
 type Config struct {
-	Service   ServiceConfig   `mapstructure:"service"`
-	HTTP      HTTPConfig      `mapstructure:"http"`
-	GRPC      GRPCConfig      `mapstructure:"grpc"`
-	Database  DatabaseConfig  `mapstructure:"database"`
-	Redis     RedisConfig     `mapstructure:"redis"`
-	Kafka     KafkaConfig     `mapstructure:"kafka"`
-	Auth      AuthConfig      `mapstructure:"auth"`
-	Logger    LoggerConfig    `mapstructure:"logger"`
-	Telemetry TelemetryConfig `mapstructure:"telemetry"`
-	Version   string          `mapstructure:"version"`
+	Service        ServiceConfig   `mapstructure:"service"`
+	HTTP           HTTPConfig      `mapstructure:"http"`
+	GRPC           GRPCConfig      `mapstructure:"grpc"`
+	Database       DatabaseConfig  `mapstructure:"database"`
+	Redis          RedisConfig     `mapstructure:"redis"`
+	Kafka          KafkaConfig     `mapstructure:"kafka"`
+	Auth           AuthConfig      `mapstructure:"auth"`
+	Logger         LoggerConfig    `mapstructure:"logger"`
+	Telemetry      TelemetryConfig `mapstructure:"telemetry"`
+	Version        string          `mapstructure:"version"`
+	MigrationsPath string          `mapstructure:"migrations_path" envconfig:"MIGRATIONS_PATH" default:"migrations"`
 }
 
 // ServiceConfig holds service-specific configuration

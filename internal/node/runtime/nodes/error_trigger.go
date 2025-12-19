@@ -144,7 +144,7 @@ func (n *StopAndErrorNode) Execute(ctx context.Context, input *runtime.Execution
 	
 	errorMessage := getStringConfig(input.NodeConfig, "errorMessage", "Workflow stopped by user")
 	
-	output.Error = fmt.Errorf(errorMessage)
+	output.Error = fmt.Errorf("%s", errorMessage)
 	output.Logs = append(output.Logs, runtime.LogEntry{
 		Level:     "error",
 		Message:   errorMessage,

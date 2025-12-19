@@ -8,8 +8,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/linkflow-ai/linkflow-ai/internal/migration/adapters/repository/postgres"
+	"github.com/linkflow-ai/linkflow-ai/internal/migration/app/service"
 	"github.com/linkflow-ai/linkflow-ai/internal/migration/server"
 	"github.com/linkflow-ai/linkflow-ai/internal/platform/config"
+	"github.com/linkflow-ai/linkflow-ai/internal/platform/database"
 	"github.com/linkflow-ai/linkflow-ai/internal/platform/logger"
 )
 
@@ -22,9 +25,28 @@ func main() {
 	log := logger.New(cfg.Logger)
 	log.Info("Starting Migration Service", "version", cfg.Version, "port", cfg.HTTP.Port)
 
+	// Initialize database
+	db, err := database.New(cfg.Database)
+	if err != nil {
+		log.Fatal("failed to connect to database", "error", err)
+	}
+	defer db.Close()
+
+	// Initialize repository
+	migrationRepo := postgres.NewMigrationRepository(db)
+
+	// Ensure migration table exists
+	if err := migrationRepo.(*postgres.MigrationRepository).EnsureMigrationTable(context.Background()); err != nil {
+		log.Error("failed to ensure migration table", "error", err)
+	}
+
+	// Initialize service
+	migrationSvc := service.NewMigrationService(migrationRepo, cfg.MigrationsPath)
+
 	srv, err := server.New(
 		server.WithConfig(cfg),
 		server.WithLogger(log),
+		server.WithMigrationService(migrationSvc),
 	)
 	if err != nil {
 		log.Fatal("failed to create server", "error", err)

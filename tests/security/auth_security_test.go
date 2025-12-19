@@ -206,7 +206,7 @@ func TestCSRFProtection(t *testing.T) {
 
 	t.Run("missing_csrf_token", func(t *testing.T) {
 		// Make request without CSRF token to state-changing endpoint
-		body := map[string]interface{}{
+		_ = map[string]interface{}{
 			"name": "Test Workflow",
 		}
 		
@@ -217,6 +217,7 @@ func TestCSRFProtection(t *testing.T) {
 		
 		// In a properly configured system, this should return 403
 		// For now, we just document the expected behavior
+		_ = req // Silence unused warning for now
 		t.Log("CSRF protection should reject requests without CSRF token for state-changing operations")
 	})
 }
