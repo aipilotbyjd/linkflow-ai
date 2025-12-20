@@ -5,6 +5,7 @@
 | Document | Description |
 |----------|-------------|
 | [Getting Started](getting-started.md) | Install and run locally |
+| [Environments](environments.md) | Dev vs Production setup |
 | [Deployment](deployment.md) | Deploy to production |
 | [API Reference](api/overview.md) | REST API documentation |
 | [Architecture](architecture/overview.md) | System design |
