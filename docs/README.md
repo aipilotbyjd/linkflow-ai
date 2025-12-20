@@ -1,87 +1,94 @@
 # LinkFlow AI Documentation
 
-Welcome to the LinkFlow AI documentation. This guide covers everything you need to know about building, deploying, and extending the platform.
+## Quick Links
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](getting-started.md) | Install and run locally |
+| [Deployment](deployment.md) | Deploy to production |
+| [API Reference](api/overview.md) | REST API documentation |
+| [Architecture](architecture/overview.md) | System design |
 
 ## Documentation Structure
 
 ```
 docs/
-├── README.md                    # This file
-├── getting-started/             # Setup and quick start guides
-│   ├── installation.md
-│   ├── quickstart.md
-│   ├── local-deployment.md
-│   └── configuration.md
-├── architecture/                # System architecture docs
-│   ├── overview.md
-│   ├── domain-driven-design.md
-│   └── services.md
-├── api/                         # API documentation
-│   ├── overview.md
-│   ├── authentication.md
-│   ├── workflows.md
-│   ├── executions.md
-│   └── webhooks.md
-├── guides/                      # How-to guides
-│   ├── creating-workflows.md
-│   ├── adding-nodes.md
-│   ├── adding-integrations.md
-│   └── deployment.md
-├── reference/                   # Reference documentation
-│   ├── environment-variables.md
-│   ├── node-types.md
-│   └── expression-functions.md
-└── development/                 # Developer documentation
-    ├── contributing.md
-    ├── testing.md
-    └── coding-standards.md
+├── getting-started.md      # Installation & quick start
+├── deployment.md           # Production deployment
+├── api/
+│   ├── overview.md         # API introduction
+│   ├── authentication.md   # Auth endpoints
+│   ├── workflows.md        # Workflow endpoints
+│   ├── executions.md       # Execution endpoints
+│   └── webhooks.md         # Webhook endpoints
+├── architecture/
+│   ├── overview.md         # High-level architecture
+│   ├── services.md         # Service descriptions
+│   └── domain-driven-design.md
+├── development/
+│   ├── coding-standards.md # Code style guide
+│   ├── contributing.md     # Contribution guidelines
+│   └── testing.md          # Testing guide
+└── reference/
+    ├── environment-variables.md
+    ├── node-types.md       # Workflow node types
+    └── expression-functions.md
 ```
 
-## Quick Links
+## Commands Reference
 
-- **[Setup Guide](getting-started/SETUP.md)** - Start here! Step-by-step setup
-- [Installation Guide](getting-started/installation.md)
-- [Quick Start](getting-started/quickstart.md)
-- [Local Deployment Reference](getting-started/local-deployment.md)
-- [API Reference](api/overview.md)
-- [Architecture Overview](architecture/overview.md)
-- [Node Types Reference](reference/node-types.md)
+### Development
+```bash
+make dev          # Start development environment
+make stop         # Stop all services
+make status       # Show service status
+make health       # Health check all services
+make logs         # View all logs
+```
 
-## What is LinkFlow AI?
+### Database
+```bash
+make db-psql      # PostgreSQL shell
+make db-migrate   # Run migrations
+make db-reset     # Reset database
+```
 
-LinkFlow AI is a production-ready workflow automation platform similar to n8n or Zapier. It allows you to:
+### Building
+```bash
+make build        # Build Go binaries
+make test         # Run tests
+make lint         # Run linters
+```
 
-- **Create Workflows**: Build automated workflows with a visual editor
-- **Connect Services**: Integrate with 13+ third-party services
-- **Execute at Scale**: Run workflows with a distributed execution engine
-- **Monitor & Debug**: Track executions with detailed logging and debugging tools
+## Services
 
-## Key Features
+| Service | Port | Description |
+|---------|------|-------------|
+| Kong | 8000 | API Gateway |
+| Auth | 8001 | Authentication |
+| User | 8002 | User management |
+| Execution | 8003 | Workflow execution |
+| Workflow | 8004 | Workflow CRUD |
+| Node | 8005 | Node definitions |
+| Executor | 8007 | Task execution |
+| Webhook | 8008 | Webhook handling |
+| Schedule | 8009 | Cron scheduling |
+| Credential | 8010 | Secrets management |
+| Notification | 8011 | Notifications |
+| Integration | 8012 | Third-party integrations |
+| Analytics | 8013 | Analytics & metrics |
+| Search | 8014 | Full-text search |
+| Storage | 8015 | File storage |
+| Config | 8016 | Configuration |
+| Admin | 8017 | Admin dashboard |
+| Tenant | 8019 | Multi-tenancy |
+| Monitoring | 8020 | System monitoring |
+| Backup | 8021 | Backup service |
+| Migration | 8022 | DB migrations |
 
-| Feature | Description |
-|---------|-------------|
-| Workflow Engine | DAG-based execution with parallel processing |
-| 15+ Node Types | Triggers, actions, conditions, loops |
-| 13+ Integrations | Slack, GitHub, Google Sheets, PostgreSQL, etc. |
-| Expression System | 50+ built-in functions for data transformation |
-| Multi-tenancy | Workspace-based isolation |
-| Billing | Stripe integration with usage tracking |
-| Real-time | WebSocket support for live updates |
+## External Resources
 
-## Tech Stack
-
-- **Backend**: Go 1.25+
-- **Database**: PostgreSQL
-- **Cache**: Redis (optional)
-- **Message Queue**: Kafka (optional)
-- **Observability**: Prometheus, Jaeger
-
-## Getting Help
-
-- Check the [Troubleshooting Guide](guides/troubleshooting.md)
-- Review [Common Issues](guides/common-issues.md)
-- Open an issue on GitHub
-
-## License
-
-LinkFlow AI is proprietary software. See LICENSE file for details.
+- [Go Documentation](https://go.dev/doc/)
+- [Docker Documentation](https://docs.docker.com/)
+- [Kong Gateway](https://docs.konghq.com/)
+- [PostgreSQL](https://www.postgresql.org/docs/)

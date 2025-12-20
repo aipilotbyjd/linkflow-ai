@@ -657,4 +657,4 @@ Triggered when workflow encounters error.
 
 - [Expression Functions](expression-functions.md)
 - [Workflows API](../api/workflows.md)
-- [Adding Custom Nodes](../guides/adding-nodes.md)
+- [Adding Custom Nodes](../reference/node-types.md)

@@ -313,4 +313,4 @@ Each service exposes:
 
 - [Architecture Overview](overview.md)
 - [Domain-Driven Design](domain-driven-design.md)
-- [Deployment Guide](../guides/deployment.md)
+- [Deployment Guide](../deployment.md)

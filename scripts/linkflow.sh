@@ -23,8 +23,8 @@ COMPOSE_DIR="$PROJECT_ROOT/deployments/docker/compose"
 ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
 export ENV_FILE
 
-# Docker Compose command
-DC="docker compose -f $COMPOSE_DIR/base.yml"
+# Docker Compose command - use project directory for correct .env resolution
+DC="docker compose --project-directory $PROJECT_ROOT -f $COMPOSE_DIR/base.yml"
 
 # ============================================================================
 # Helper Functions

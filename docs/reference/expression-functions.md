@@ -578,4 +578,4 @@ HTML unescape.
 
 - [Node Types Reference](node-types.md)
 - [Workflows API](../api/workflows.md)
-- [Quick Start Guide](../getting-started/quickstart.md)
+- [Quick Start Guide](../getting-started.md)

@@ -349,6 +349,6 @@ EXECUTION_TIMEOUT=1h
 
 ## Next Steps
 
-- [Configuration Guide](../getting-started/configuration.md)
-- [Deployment Guide](../guides/deployment.md)
-- [Installation Guide](../getting-started/installation.md)
+- [Getting Started](../getting-started.md)
+- [Deployment Guide](../deployment.md)
+- [Architecture Overview](../architecture/overview.md)

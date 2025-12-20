@@ -5,9 +5,11 @@ LinkFlow AI provides a RESTful API for managing workflows, executions, and integ
 ## Base URL
 
 ```
-Development: http://localhost:8080/api/v1
+Development: http://localhost:8000/api/v1
 Production:  https://api.linkflow.ai/api/v1
 ```
+
+All requests go through Kong API Gateway on port 8000.
 
 ## Authentication
 

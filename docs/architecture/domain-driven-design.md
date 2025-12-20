@@ -265,4 +265,4 @@ Each domain is a bounded context with its own:
 
 - [Service Architecture](services.md)
 - [API Documentation](../api/overview.md)
-- [Adding New Domains](../guides/adding-domains.md)
+- [Adding New Domains](../architecture/domain-driven-design.md)

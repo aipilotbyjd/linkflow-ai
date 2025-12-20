@@ -141,7 +141,7 @@ internal/newdomain/
 4. Add tests
 5. Update documentation
 
-See [Adding Nodes Guide](../guides/adding-nodes.md) for details.
+See [Adding Nodes Guide](../reference/node-types.md) for details.
 
 ### Adding a New Integration
 
