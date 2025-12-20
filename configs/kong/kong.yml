@@ -191,6 +191,70 @@ services:
             - 172.16.0.0/12
             - 192.168.0.0/16
 
+  # Executor Service
+  - name: executor-service
+    url: http://executor:8007
+    routes:
+      - name: executor-routes
+        paths:
+          - /api/v1/executor
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 1000
+          policy: local
+
+  # Config Service
+  - name: config-service
+    url: http://config:8016
+    routes:
+      - name: config-routes
+        paths:
+          - /api/v1/config
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: ip-restriction
+        config:
+          allow:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+
+  # Monitoring Service
+  - name: monitoring-service
+    url: http://monitoring:8019
+    routes:
+      - name: monitoring-routes
+        paths:
+          - /api/v1/monitoring
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: ip-restriction
+        config:
+          allow:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+
+  # Integration Service
+  - name: integration-service
+    url: http://integration:8012
+    routes:
+      - name: integration-routes
+        paths:
+          - /api/v1/integrations
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 200
+          policy: local
+
   # Health Check (no auth)
   - name: health-service
     url: http://gateway:8000

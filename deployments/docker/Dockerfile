@@ -12,5 +12,6 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 COPY --from=builder /app/service .
 COPY --from=builder /app/configs ./configs
-EXPOSE 8080
+# Service ports range from 8000-8019, expose based on HTTP_PORT env var
+EXPOSE 8000-8019
 CMD ["./service"]
