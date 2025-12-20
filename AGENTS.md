@@ -7,7 +7,7 @@
 LinkFlow AI is a workflow automation platform that allows users to create, execute, and manage automated workflows. The platform supports various node types (triggers, actions, conditions), integrations with third-party services, and a robust execution engine.
 
 **Tech Stack:**
-- **Language:** Go 1.21+
+- **Language:** Go 1.25+
 - **Database:** PostgreSQL
 - **Cache:** Redis (optional)
 - **Architecture:** Domain-Driven Design (DDD) with Clean Architecture

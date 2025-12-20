@@ -4,7 +4,7 @@ This guide covers how to install and set up LinkFlow AI for development and prod
 
 ## Prerequisites
 
-- **Go**: Version 1.21 or higher
+- **Go**: Version 1.25 or higher
 - **PostgreSQL**: Version 14 or higher
 - **Redis**: Version 6 or higher (optional, for caching)
 - **Docker**: For containerized deployment (optional)

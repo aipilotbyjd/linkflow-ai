@@ -39,9 +39,10 @@ docs/
 
 ## Quick Links
 
+- **[Setup Guide](getting-started/SETUP.md)** - Start here! Step-by-step setup
 - [Installation Guide](getting-started/installation.md)
 - [Quick Start](getting-started/quickstart.md)
-- [Local Deployment](getting-started/local-deployment.md)
+- [Local Deployment Reference](getting-started/local-deployment.md)
 - [API Reference](api/overview.md)
 - [Architecture Overview](architecture/overview.md)
 - [Node Types Reference](reference/node-types.md)
@@ -69,7 +70,7 @@ LinkFlow AI is a production-ready workflow automation platform similar to n8n or
 
 ## Tech Stack
 
-- **Backend**: Go 1.21+
+- **Backend**: Go 1.25+
 - **Database**: PostgreSQL
 - **Cache**: Redis (optional)
 - **Message Queue**: Kafka (optional)

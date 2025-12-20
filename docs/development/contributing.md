@@ -6,7 +6,7 @@ Thank you for your interest in contributing to LinkFlow AI!
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.25 or higher
 - PostgreSQL 14+
 - Git
 
