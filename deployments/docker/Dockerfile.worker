@@ -1,15 +1,50 @@
 # Worker Dockerfile for background jobs
-FROM golang:1.25-alpine AS builder
-WORKDIR /app
-COPY go.* ./
-RUN go mod download
-COPY . .
-ARG WORKER_NAME
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o worker cmd/workers/${WORKER_NAME}/main.go
+# Usage: docker build --build-arg WORKER_NAME=scheduler -t linkflow/worker-scheduler .
 
+# =============================================================================
+# Build Stage
+# =============================================================================
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+WORKDIR /app
+
+# Copy dependency files
+COPY go.mod go.sum ./
+COPY go.work go.work.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build argument for worker name
+ARG WORKER_NAME
+
+# Build with optimizations
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o /app/worker \
+    ./cmd/workers/${WORKER_NAME}
+
+# =============================================================================
+# Runtime Stage
+# =============================================================================
 FROM alpine:3.19
+
 RUN apk --no-cache add ca-certificates tzdata
-WORKDIR /root/
+
+# Create non-root user
+RUN addgroup -g 1000 linkflow && \
+    adduser -D -u 1000 -G linkflow linkflow
+
+WORKDIR /app
+
 COPY --from=builder /app/worker .
 COPY --from=builder /app/configs ./configs
+
+RUN chown -R linkflow:linkflow /app
+
+USER linkflow
+
 CMD ["./worker"]
