@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "linkflow-ai-collection",
 		"name": "LinkFlow AI - Workflow Automation Platform",
-		"description": "Complete API collection for LinkFlow AI - a production-ready workflow automation platform (n8n/Zapier alternative) built in Go.\n\n## Setup Instructions\n\n1. Import this collection into Postman\n2. Create an environment with these variables:\n   - `baseUrl`: http://localhost:8080\n   - `accessToken`: (will be set after login)\n   - `refreshToken`: (will be set after login)\n   - `workspaceId`: (will be set after workspace creation)\n\n## Authentication\n\nMost endpoints require Bearer token authentication. After logging in, the access token will be automatically saved to the environment variable.\n\n## Rate Limiting\n\nDefault: 100 requests per minute. Rate limit headers:\n- X-RateLimit-Limit\n- X-RateLimit-Remaining",
+		"description": "Complete API collection for LinkFlow AI - a production-ready workflow automation platform (n8n/Zapier alternative) built in Go.\n\n## Setup Instructions\n\n1. Import this collection into Postman\n2. Import the environment file (LinkFlow_AI.postman_environment.json)\n3. Select the \"LinkFlow AI - Development\" environment\n4. Start the services: `make dev`\n\n## Base URL\n\nAll requests go through Kong API Gateway:\n- Development: http://localhost:8000\n- Production: http://localhost (or your domain)\n\n## Health Checks\n\nEach service exposes health endpoints:\n- `/health/{service}/live` - Liveness check (is it running?)\n- `/health/{service}/ready` - Readiness check (can it accept traffic?)\n\nServices: auth, user, workflow, execution, node, executor, webhook, schedule, credential, notification, integration, analytics, search, storage, config, admin, tenant, monitoring, backup, migration\n\n## Authentication\n\nMost endpoints require Bearer token authentication. After logging in, the access token will be automatically saved to the environment variable.\n\n## Rate Limiting\n\nConfigured per-service in Kong. Rate limit headers:\n- X-RateLimit-Limit\n- X-RateLimit-Remaining",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"auth": {
@@ -18,17 +18,17 @@
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "http://localhost:8080",
+			"value": "http://localhost:8000",
 			"type": "string"
 		}
 	],
 	"item": [
 		{
 			"name": "Health & Info",
-			"description": "Health checks and system information endpoints",
+			"description": "Health checks and system information endpoints. All services expose /health/live (liveness) and /health/ready (readiness) endpoints.",
 			"item": [
 				{
-					"name": "Health Check",
+					"name": "Gateway Health (Aggregated)",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -36,19 +36,320 @@
 							"raw": "{{baseUrl}}/health",
 							"host": ["{{baseUrl}}"],
 							"path": ["health"]
-						}
+						},
+						"description": "Aggregated health check for the API gateway"
 					}
 				},
 				{
-					"name": "API Health Check",
+					"name": "Auth Service - Live",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/health",
+							"raw": "{{baseUrl}}/health/auth/live",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "health"]
-						}
+							"path": ["health", "auth", "live"]
+						},
+						"description": "Liveness check - is the auth service running?"
+					}
+				},
+				{
+					"name": "Auth Service - Ready",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/auth/ready",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "auth", "ready"]
+						},
+						"description": "Readiness check - can auth service accept traffic?"
+					}
+				},
+				{
+					"name": "User Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/user/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "user", "live"]
+						},
+						"description": "Liveness check - is the user service running?"
+					}
+				},
+				{
+					"name": "User Service - Ready",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/user/ready",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "user", "ready"]
+						},
+						"description": "Readiness check - can user service accept traffic?"
+					}
+				},
+				{
+					"name": "Workflow Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/workflow/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "workflow", "live"]
+						},
+						"description": "Liveness check - is the workflow service running?"
+					}
+				},
+				{
+					"name": "Workflow Service - Ready",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/workflow/ready",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "workflow", "ready"]
+						},
+						"description": "Readiness check - can workflow service accept traffic?"
+					}
+				},
+				{
+					"name": "Execution Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/execution/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "execution", "live"]
+						},
+						"description": "Liveness check - is the execution service running?"
+					}
+				},
+				{
+					"name": "Execution Service - Ready",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/execution/ready",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "execution", "ready"]
+						},
+						"description": "Readiness check - can execution service accept traffic?"
+					}
+				},
+				{
+					"name": "Node Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/node/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "node", "live"]
+						},
+						"description": "Liveness check - is the node service running?"
+					}
+				},
+				{
+					"name": "Executor Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/executor/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "executor", "live"]
+						},
+						"description": "Liveness check - is the executor service running?"
+					}
+				},
+				{
+					"name": "Webhook Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/webhook/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "webhook", "live"]
+						},
+						"description": "Liveness check - is the webhook service running?"
+					}
+				},
+				{
+					"name": "Schedule Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/schedule/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "schedule", "live"]
+						},
+						"description": "Liveness check - is the schedule service running?"
+					}
+				},
+				{
+					"name": "Credential Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/credential/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "credential", "live"]
+						},
+						"description": "Liveness check - is the credential service running?"
+					}
+				},
+				{
+					"name": "Notification Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/notification/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "notification", "live"]
+						},
+						"description": "Liveness check - is the notification service running?"
+					}
+				},
+				{
+					"name": "Integration Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/integration/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "integration", "live"]
+						},
+						"description": "Liveness check - is the integration service running?"
+					}
+				},
+				{
+					"name": "Analytics Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/analytics/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "analytics", "live"]
+						},
+						"description": "Liveness check - is the analytics service running?"
+					}
+				},
+				{
+					"name": "Search Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/search/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "search", "live"]
+						},
+						"description": "Liveness check - is the search service running?"
+					}
+				},
+				{
+					"name": "Storage Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/storage/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "storage", "live"]
+						},
+						"description": "Liveness check - is the storage service running?"
+					}
+				},
+				{
+					"name": "Config Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/config/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "config", "live"]
+						},
+						"description": "Liveness check - is the config service running?"
+					}
+				},
+				{
+					"name": "Admin Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/admin/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "admin", "live"]
+						},
+						"description": "Liveness check - is the admin service running?"
+					}
+				},
+				{
+					"name": "Tenant Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/tenant/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "tenant", "live"]
+						},
+						"description": "Liveness check - is the tenant service running?"
+					}
+				},
+				{
+					"name": "Monitoring Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/monitoring/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "monitoring", "live"]
+						},
+						"description": "Liveness check - is the monitoring service running?"
+					}
+				},
+				{
+					"name": "Backup Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/backup/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "backup", "live"]
+						},
+						"description": "Liveness check - is the backup service running?"
+					}
+				},
+				{
+					"name": "Migration Service - Live",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/migration/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["health", "migration", "live"]
+						},
+						"description": "Liveness check - is the migration service running?"
 					}
 				}
 			]
