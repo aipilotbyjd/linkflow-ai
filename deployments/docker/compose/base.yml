@@ -80,7 +80,7 @@ services:
       POSTGRES_DB: ${DB_NAME:-linkflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../../scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       <<: *healthcheck
@@ -171,7 +171,7 @@ services:
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
     volumes:
-      - ../../configs/kong:/kong
+      - ./configs/kong:/kong
     healthcheck:
       test: ["CMD", "kong", "health"]
       <<: *healthcheck
@@ -665,7 +665,7 @@ services:
     <<: *service-base
     container_name: linkflow-prometheus
     volumes:
-      - ../../configs/prometheus:/etc/prometheus
+      - ./configs/prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -684,7 +684,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
-      - ../../configs/grafana:/etc/grafana/provisioning
+      - ./configs/grafana:/etc/grafana/provisioning
     networks:
       - edge-network
       - app-network
