@@ -1,298 +1,390 @@
-// Package postgres provides PostgreSQL repository implementations for auth
+// Package postgres provides PostgreSQL repository implementations for auth using GORM
 package postgres
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/linkflow-ai/linkflow-ai/internal/auth/domain/model"
+	"gorm.io/gorm"
 )
 
-// TokenRepository implements token persistence with PostgreSQL
+// ============================================================================
+// User Repository
+// ============================================================================
+
+// UserRepository implements user persistence with GORM
+type UserRepository struct {
+	db *gorm.DB
+}
+
+// NewUserRepository creates a new user repository
+func NewUserRepository(db *gorm.DB) *UserRepository {
+	return &UserRepository{db: db}
+}
+
+// FindByID finds a user by ID
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND deleted_at IS NULL", id).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindByEmail finds a user by email
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Where("email = ? AND deleted_at IS NULL", email).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindByUsername finds a user by username
+func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Where("username = ? AND deleted_at IS NULL", username).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+// Create creates a new user
+func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Create(user).Error
+}
+
+// Update updates a user
+func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
+}
+
+// UpdatePassword updates user password
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		Update("password_hash", passwordHash).Error
+}
+
+// UpdateLoginStats updates login statistics
+func (r *UserRepository) UpdateLoginStats(ctx context.Context, userID string, success bool) error {
+	updates := map[string]interface{}{
+		"updated_at": time.Now(),
+	}
+
+	if success {
+		updates["last_login_at"] = time.Now()
+		updates["login_count"] = gorm.Expr("login_count + 1")
+		updates["failed_login_count"] = 0
+		updates["locked_until"] = nil
+	} else {
+		updates["failed_login_count"] = gorm.Expr("failed_login_count + 1")
+	}
+
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		Updates(updates).Error
+}
+
+// LockAccount locks a user account
+func (r *UserRepository) LockAccount(ctx context.Context, userID string, until time.Time) error {
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		Update("locked_until", until).Error
+}
+
+// VerifyEmail marks email as verified
+func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"email_verified":    true,
+			"email_verified_at": time.Now(),
+		}).Error
+}
+
+// ExistsByEmail checks if a user exists by email
+func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("email = ? AND deleted_at IS NULL", email).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// ExistsByUsername checks if a user exists by username
+func (r *UserRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("username = ? AND deleted_at IS NULL", username).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// ============================================================================
+// Token Repository
+// ============================================================================
+
+// TokenRepository implements token persistence with GORM
 type TokenRepository struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewTokenRepository creates a new token repository
-func NewTokenRepository(db *sql.DB) *TokenRepository {
+func NewTokenRepository(db *gorm.DB) *TokenRepository {
 	return &TokenRepository{db: db}
 }
 
 // SaveRefreshToken saves a refresh token
 func (r *TokenRepository) SaveRefreshToken(ctx context.Context, token *model.RefreshToken) error {
-	query := `
-		INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at, user_agent, ip_address)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`
-	_, err := r.db.ExecContext(ctx, query,
-		token.ID, token.UserID, token.Token, token.ExpiresAt,
-		token.CreatedAt, token.UserAgent, token.IPAddress,
-	)
-	return err
+	return r.db.WithContext(ctx).Create(token).Error
 }
 
 // FindRefreshToken finds a refresh token
-func (r *TokenRepository) FindRefreshToken(ctx context.Context, token string) (*model.RefreshToken, error) {
-	query := `
-		SELECT id, user_id, token, expires_at, created_at, revoked_at, user_agent, ip_address
-		FROM refresh_tokens WHERE token = $1
-	`
-	var t model.RefreshToken
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&t.ID, &t.UserID, &t.Token, &t.ExpiresAt,
-		&t.CreatedAt, &t.RevokedAt, &t.UserAgent, &t.IPAddress,
-	)
+func (r *TokenRepository) FindRefreshToken(ctx context.Context, tokenStr string) (*model.RefreshToken, error) {
+	var token model.RefreshToken
+	err := r.db.WithContext(ctx).
+		Where("token = ?", tokenStr).
+		First(&token).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrTokenInvalid
+		}
 		return nil, err
 	}
-	return &t, nil
+	return &token, nil
 }
 
 // RevokeRefreshToken revokes a refresh token
-func (r *TokenRepository) RevokeRefreshToken(ctx context.Context, token string) error {
-	query := `UPDATE refresh_tokens SET revoked_at = $1 WHERE token = $2`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), token)
-	return err
+func (r *TokenRepository) RevokeRefreshToken(ctx context.Context, tokenStr string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.RefreshToken{}).
+		Where("token = ?", tokenStr).
+		Update("revoked_at", time.Now()).Error
 }
 
 // RevokeAllUserTokens revokes all tokens for a user
 func (r *TokenRepository) RevokeAllUserTokens(ctx context.Context, userID string) error {
-	query := `UPDATE refresh_tokens SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), userID)
-	return err
+	return r.db.WithContext(ctx).
+		Model(&model.RefreshToken{}).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Update("revoked_at", time.Now()).Error
+}
+
+// CleanupExpiredTokens removes expired tokens
+func (r *TokenRepository) CleanupExpiredTokens(ctx context.Context) error {
+	return r.db.WithContext(ctx).
+		Where("expires_at < ? OR revoked_at IS NOT NULL", time.Now()).
+		Delete(&model.RefreshToken{}).Error
 }
 
 // SavePasswordResetToken saves a password reset token
 func (r *TokenRepository) SavePasswordResetToken(ctx context.Context, token *model.PasswordResetToken) error {
-	query := `
-		INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`
-	_, err := r.db.ExecContext(ctx, query,
-		token.ID, token.UserID, token.Token, token.ExpiresAt, token.CreatedAt,
-	)
-	return err
+	return r.db.WithContext(ctx).Create(token).Error
 }
 
 // FindPasswordResetToken finds a password reset token
-func (r *TokenRepository) FindPasswordResetToken(ctx context.Context, token string) (*model.PasswordResetToken, error) {
-	query := `
-		SELECT id, user_id, token, expires_at, used_at, created_at
-		FROM password_reset_tokens WHERE token = $1
-	`
-	var t model.PasswordResetToken
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&t.ID, &t.UserID, &t.Token, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt,
-	)
+func (r *TokenRepository) FindPasswordResetToken(ctx context.Context, tokenStr string) (*model.PasswordResetToken, error) {
+	var token model.PasswordResetToken
+	err := r.db.WithContext(ctx).
+		Where("token = ?", tokenStr).
+		First(&token).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrTokenInvalid
+		}
 		return nil, err
 	}
-	return &t, nil
+	return &token, nil
 }
 
 // MarkPasswordResetTokenUsed marks a password reset token as used
-func (r *TokenRepository) MarkPasswordResetTokenUsed(ctx context.Context, token string) error {
-	query := `UPDATE password_reset_tokens SET used_at = $1 WHERE token = $2`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), token)
-	return err
+func (r *TokenRepository) MarkPasswordResetTokenUsed(ctx context.Context, tokenStr string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.PasswordResetToken{}).
+		Where("token = ?", tokenStr).
+		Update("used_at", time.Now()).Error
 }
 
 // SaveEmailVerificationToken saves an email verification token
 func (r *TokenRepository) SaveEmailVerificationToken(ctx context.Context, token *model.EmailVerificationToken) error {
-	query := `
-		INSERT INTO email_verification_tokens (id, user_id, email, token, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`
-	_, err := r.db.ExecContext(ctx, query,
-		token.ID, token.UserID, token.Email, token.Token, token.ExpiresAt, token.CreatedAt,
-	)
-	return err
+	return r.db.WithContext(ctx).Create(token).Error
 }
 
 // FindEmailVerificationToken finds an email verification token
-func (r *TokenRepository) FindEmailVerificationToken(ctx context.Context, token string) (*model.EmailVerificationToken, error) {
-	query := `
-		SELECT id, user_id, email, token, expires_at, used_at, created_at
-		FROM email_verification_tokens WHERE token = $1
-	`
-	var t model.EmailVerificationToken
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&t.ID, &t.UserID, &t.Email, &t.Token, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt,
-	)
+func (r *TokenRepository) FindEmailVerificationToken(ctx context.Context, tokenStr string) (*model.EmailVerificationToken, error) {
+	var token model.EmailVerificationToken
+	err := r.db.WithContext(ctx).
+		Where("token = ?", tokenStr).
+		First(&token).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrTokenInvalid
+		}
 		return nil, err
 	}
-	return &t, nil
+	return &token, nil
 }
 
 // MarkEmailVerificationTokenUsed marks an email verification token as used
-func (r *TokenRepository) MarkEmailVerificationTokenUsed(ctx context.Context, token string) error {
-	query := `UPDATE email_verification_tokens SET used_at = $1 WHERE token = $2`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), token)
-	return err
+func (r *TokenRepository) MarkEmailVerificationTokenUsed(ctx context.Context, tokenStr string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.EmailVerificationToken{}).
+		Where("token = ?", tokenStr).
+		Update("used_at", time.Now()).Error
 }
 
-// APIKeyRepository implements API key persistence with PostgreSQL
+// ============================================================================
+// API Key Repository
+// ============================================================================
+
+// APIKeyRepository implements API key persistence with GORM
 type APIKeyRepository struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewAPIKeyRepository creates a new API key repository
-func NewAPIKeyRepository(db *sql.DB) *APIKeyRepository {
+func NewAPIKeyRepository(db *gorm.DB) *APIKeyRepository {
 	return &APIKeyRepository{db: db}
 }
 
 // Save saves an API key
 func (r *APIKeyRepository) Save(ctx context.Context, key *model.APIKey) error {
-	// Convert scopes to JSON
-	scopesJSON, err := json.Marshal(key.Scopes)
-	if err != nil {
-		return err
-	}
-	
-	// Handle empty workspace_id
-	var workspaceID interface{}
-	if key.WorkspaceID != "" {
-		workspaceID = key.WorkspaceID
-	}
-	
-	query := `
-		INSERT INTO api_keys (id, user_id, workspace_id, name, key_hash, key_prefix, scopes, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`
-	_, err = r.db.ExecContext(ctx, query,
-		key.ID, key.UserID, workspaceID, key.Name,
-		key.KeyHash, key.KeyPrefix, scopesJSON, key.ExpiresAt, key.CreatedAt,
-	)
-	return err
+	return r.db.WithContext(ctx).Create(key).Error
 }
 
 // FindByID finds an API key by ID
 func (r *APIKeyRepository) FindByID(ctx context.Context, id string) (*model.APIKey, error) {
-	query := `
-		SELECT id, user_id, workspace_id, name, key_hash, key_prefix, scopes, last_used_at, expires_at, created_at, revoked_at
-		FROM api_keys WHERE id = $1
-	`
-	return r.scanAPIKey(r.db.QueryRowContext(ctx, query, id))
+	var key model.APIKey
+	err := r.db.WithContext(ctx).
+		Where("id = ?", id).
+		First(&key).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrTokenInvalid
+		}
+		return nil, err
+	}
+	return &key, nil
 }
 
 // FindByPrefix finds an API key by prefix
 func (r *APIKeyRepository) FindByPrefix(ctx context.Context, prefix string) (*model.APIKey, error) {
-	query := `
-		SELECT id, user_id, workspace_id, name, key_hash, key_prefix, scopes, last_used_at, expires_at, created_at, revoked_at
-		FROM api_keys WHERE key_prefix = $1 AND revoked_at IS NULL
-	`
-	return r.scanAPIKey(r.db.QueryRowContext(ctx, query, prefix))
+	var key model.APIKey
+	err := r.db.WithContext(ctx).
+		Where("key_prefix = ? AND revoked_at IS NULL", prefix).
+		First(&key).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrTokenInvalid
+		}
+		return nil, err
+	}
+	return &key, nil
 }
 
 // ListByUser lists API keys by user
 func (r *APIKeyRepository) ListByUser(ctx context.Context, userID string) ([]*model.APIKey, error) {
-	query := `
-		SELECT id, user_id, workspace_id, name, key_hash, key_prefix, scopes, last_used_at, expires_at, created_at, revoked_at
-		FROM api_keys WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC
-	`
-	return r.listAPIKeys(ctx, query, userID)
+	var keys []*model.APIKey
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Order("created_at DESC").
+		Find(&keys).Error
+	return keys, err
 }
 
 // ListByWorkspace lists API keys by workspace
 func (r *APIKeyRepository) ListByWorkspace(ctx context.Context, workspaceID string) ([]*model.APIKey, error) {
-	query := `
-		SELECT id, user_id, workspace_id, name, key_hash, key_prefix, scopes, last_used_at, expires_at, created_at, revoked_at
-		FROM api_keys WHERE workspace_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC
-	`
-	return r.listAPIKeys(ctx, query, workspaceID)
+	var keys []*model.APIKey
+	err := r.db.WithContext(ctx).
+		Where("workspace_id = ? AND revoked_at IS NULL", workspaceID).
+		Order("created_at DESC").
+		Find(&keys).Error
+	return keys, err
 }
 
 // Revoke revokes an API key
 func (r *APIKeyRepository) Revoke(ctx context.Context, id string) error {
-	query := `UPDATE api_keys SET revoked_at = $1 WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), id)
-	return err
+	return r.db.WithContext(ctx).
+		Model(&model.APIKey{}).
+		Where("id = ?", id).
+		Update("revoked_at", time.Now()).Error
 }
 
 // UpdateLastUsed updates last used timestamp
 func (r *APIKeyRepository) UpdateLastUsed(ctx context.Context, id string) error {
-	query := `UPDATE api_keys SET last_used_at = $1 WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), id)
-	return err
+	return r.db.WithContext(ctx).
+		Model(&model.APIKey{}).
+		Where("id = ?", id).
+		Update("last_used_at", time.Now()).Error
 }
 
-func (r *APIKeyRepository) scanAPIKey(row *sql.Row) (*model.APIKey, error) {
-	var k model.APIKey
-	var scopesJSON []byte
-	err := row.Scan(
-		&k.ID, &k.UserID, &k.WorkspaceID, &k.Name, &k.KeyHash, &k.KeyPrefix,
-		&scopesJSON, &k.LastUsedAt, &k.ExpiresAt, &k.CreatedAt, &k.RevokedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	// Parse scopes from JSON array
-	return &k, nil
-}
+// ============================================================================
+// OAuth Repository
+// ============================================================================
 
-func (r *APIKeyRepository) listAPIKeys(ctx context.Context, query, param string) ([]*model.APIKey, error) {
-	rows, err := r.db.QueryContext(ctx, query, param)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var keys []*model.APIKey
-	for rows.Next() {
-		var k model.APIKey
-		var scopesJSON []byte
-		err := rows.Scan(
-			&k.ID, &k.UserID, &k.WorkspaceID, &k.Name, &k.KeyHash, &k.KeyPrefix,
-			&scopesJSON, &k.LastUsedAt, &k.ExpiresAt, &k.CreatedAt, &k.RevokedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, &k)
-	}
-	return keys, nil
-}
-
-// OAuthRepository implements OAuth persistence with PostgreSQL
+// OAuthRepository implements OAuth persistence with GORM
 type OAuthRepository struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewOAuthRepository creates a new OAuth repository
-func NewOAuthRepository(db *sql.DB) *OAuthRepository {
+func NewOAuthRepository(db *gorm.DB) *OAuthRepository {
 	return &OAuthRepository{db: db}
 }
 
-// Save saves an OAuth connection
+// Save saves an OAuth connection (upsert)
 func (r *OAuthRepository) Save(ctx context.Context, conn *model.OAuthConnection) error {
-	query := `
-		INSERT INTO oauth_connections (id, user_id, provider, provider_id, email, access_token, refresh_token, expires_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (user_id, provider) DO UPDATE SET
-			access_token = $6, refresh_token = $7, expires_at = $8, updated_at = $10
-	`
-	_, err := r.db.ExecContext(ctx, query,
-		conn.ID, conn.UserID, conn.Provider, conn.ProviderID, conn.Email,
-		conn.AccessToken, conn.RefreshToken, conn.ExpiresAt, conn.CreatedAt, conn.UpdatedAt,
-	)
-	return err
+	return r.db.WithContext(ctx).
+		Where("user_id = ? AND provider = ?", conn.UserID, conn.Provider).
+		Assign(model.OAuthConnection{
+			ProviderID:   conn.ProviderID,
+			Email:        conn.Email,
+			AccessToken:  conn.AccessToken,
+			RefreshToken: conn.RefreshToken,
+			ExpiresAt:    conn.ExpiresAt,
+			Metadata:     conn.Metadata,
+			UpdatedAt:    time.Now(),
+		}).
+		FirstOrCreate(conn).Error
 }
 
 // FindByProviderID finds an OAuth connection by provider ID
 func (r *OAuthRepository) FindByProviderID(ctx context.Context, provider model.OAuthProvider, providerID string) (*model.OAuthConnection, error) {
-	query := `
-		SELECT id, user_id, provider, provider_id, email, access_token, refresh_token, expires_at, created_at, updated_at
-		FROM oauth_connections WHERE provider = $1 AND provider_id = $2
-	`
 	var conn model.OAuthConnection
-	err := r.db.QueryRowContext(ctx, query, provider, providerID).Scan(
-		&conn.ID, &conn.UserID, &conn.Provider, &conn.ProviderID, &conn.Email,
-		&conn.AccessToken, &conn.RefreshToken, &conn.ExpiresAt, &conn.CreatedAt, &conn.UpdatedAt,
-	)
+	err := r.db.WithContext(ctx).
+		Where("provider = ? AND provider_id = ?", provider, providerID).
+		First(&conn).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &conn, nil
@@ -300,140 +392,183 @@ func (r *OAuthRepository) FindByProviderID(ctx context.Context, provider model.O
 
 // FindByUser finds OAuth connections by user
 func (r *OAuthRepository) FindByUser(ctx context.Context, userID string) ([]*model.OAuthConnection, error) {
-	query := `
-		SELECT id, user_id, provider, provider_id, email, access_token, refresh_token, expires_at, created_at, updated_at
-		FROM oauth_connections WHERE user_id = $1
-	`
-	rows, err := r.db.QueryContext(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var conns []*model.OAuthConnection
-	for rows.Next() {
-		var conn model.OAuthConnection
-		err := rows.Scan(
-			&conn.ID, &conn.UserID, &conn.Provider, &conn.ProviderID, &conn.Email,
-			&conn.AccessToken, &conn.RefreshToken, &conn.ExpiresAt, &conn.CreatedAt, &conn.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		conns = append(conns, &conn)
-	}
-	return conns, nil
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Find(&conns).Error
+	return conns, err
 }
 
 // Delete deletes an OAuth connection
 func (r *OAuthRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM oauth_connections WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
-	return err
+	return r.db.WithContext(ctx).
+		Where("id = ?", id).
+		Delete(&model.OAuthConnection{}).Error
 }
 
-// UserRepository implements user persistence for auth
-type UserRepository struct {
-	db *sql.DB
+// ============================================================================
+// Session Repository
+// ============================================================================
+
+// SessionRepository implements session persistence with GORM
+type SessionRepository struct {
+	db *gorm.DB
 }
 
-// NewUserRepository creates a new user repository
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{db: db}
+// NewSessionRepository creates a new session repository
+func NewSessionRepository(db *gorm.DB) *SessionRepository {
+	return &SessionRepository{db: db}
 }
 
-// AuthUser represents a user for the auth service (to avoid import cycles)
-type AuthUser struct {
-	ID             string
-	Email          string
-	Username       string
-	PasswordHash   string
-	FirstName      string
-	LastName       string
-	EmailVerified  bool
-	Status         string
-	FailedAttempts int
-	LockedUntil    *time.Time
-	MFAEnabled     bool
-	MFASecret      string
-	Roles          []string
-	CreatedAt      time.Time
+// Save saves a session
+func (r *SessionRepository) Save(ctx context.Context, session *model.Session) error {
+	return r.db.WithContext(ctx).Create(session).Error
 }
 
-// FindByID finds a user by ID
-func (r *UserRepository) FindByID(ctx context.Context, id string) (*AuthUser, error) {
-	query := `
-		SELECT id, email, username, password_hash, first_name, last_name, email_verified, status, 
-		       COALESCE(failed_login_count, 0), locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
-		FROM users WHERE id = $1 AND deleted_at IS NULL
-	`
-	return r.scanUser(r.db.QueryRowContext(ctx, query, id))
-}
-
-// FindByEmail finds a user by email
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*AuthUser, error) {
-	query := `
-		SELECT id, email, username, password_hash, first_name, last_name, email_verified, status, 
-		       COALESCE(failed_login_count, 0), locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
-		FROM users WHERE email = $1 AND deleted_at IS NULL
-	`
-	return r.scanUser(r.db.QueryRowContext(ctx, query, email))
-}
-
-// Create creates a new user
-func (r *UserRepository) Create(ctx context.Context, user *AuthUser) error {
-	// Generate username from email if not provided
-	username := user.Username
-	if username == "" {
-		username = user.Email // Use email as username
-	}
-	
-	query := `
-		INSERT INTO users (id, email, username, password_hash, first_name, last_name, email_verified, status, 
-		                   failed_login_count, mfa_enabled, mfa_secret, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-	`
-	_, err := r.db.ExecContext(ctx, query,
-		user.ID, user.Email, username, user.PasswordHash, user.FirstName, user.LastName,
-		user.EmailVerified, user.Status, user.FailedAttempts, user.MFAEnabled, user.MFASecret, user.CreatedAt,
-	)
-	return err
-}
-
-// Update updates user auth fields
-func (r *UserRepository) Update(ctx context.Context, user *AuthUser) error {
-	query := `
-		UPDATE users SET failed_login_count = $1, locked_until = $2, updated_at = NOW()
-		WHERE id = $3
-	`
-	_, err := r.db.ExecContext(ctx, query, user.FailedAttempts, user.LockedUntil, user.ID)
-	return err
-}
-
-// UpdatePassword updates user password
-func (r *UserRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
-	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, passwordHash, userID)
-	return err
-}
-
-// VerifyEmail marks email as verified
-func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) error {
-	query := `UPDATE users SET email_verified = true, updated_at = NOW() WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, userID)
-	return err
-}
-
-func (r *UserRepository) scanUser(row *sql.Row) (*AuthUser, error) {
-	var u AuthUser
-	err := row.Scan(
-		&u.ID, &u.Email, &u.Username, &u.PasswordHash, &u.FirstName, &u.LastName,
-		&u.EmailVerified, &u.Status, &u.FailedAttempts, &u.LockedUntil,
-		&u.MFAEnabled, &u.MFASecret, &u.CreatedAt,
-	)
+// FindByToken finds a session by token
+func (r *SessionRepository) FindByToken(ctx context.Context, token string) (*model.Session, error) {
+	var session model.Session
+	err := r.db.WithContext(ctx).
+		Where("token = ? AND expires_at > ?", token, time.Now()).
+		First(&session).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
-	u.Roles = []string{"user"} // Default role
-	return &u, nil
+	return &session, nil
+}
+
+// ListByUser lists active sessions by user
+func (r *SessionRepository) ListByUser(ctx context.Context, userID string) ([]*model.Session, error) {
+	var sessions []*model.Session
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND expires_at > ?", userID, time.Now()).
+		Order("last_seen_at DESC").
+		Find(&sessions).Error
+	return sessions, err
+}
+
+// Touch updates last seen time
+func (r *SessionRepository) Touch(ctx context.Context, sessionID string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Session{}).
+		Where("id = ?", sessionID).
+		Update("last_seen_at", time.Now()).Error
+}
+
+// Delete deletes a session
+func (r *SessionRepository) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).
+		Where("id = ?", id).
+		Delete(&model.Session{}).Error
+}
+
+// DeleteAllByUser deletes all sessions for a user
+func (r *SessionRepository) DeleteAllByUser(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Delete(&model.Session{}).Error
+}
+
+// CleanupExpired removes expired sessions
+func (r *SessionRepository) CleanupExpired(ctx context.Context) error {
+	return r.db.WithContext(ctx).
+		Where("expires_at < ?", time.Now()).
+		Delete(&model.Session{}).Error
+}
+
+// ============================================================================
+// Auth Event Repository (Audit Logging)
+// ============================================================================
+
+// AuthEventRepository implements auth event persistence with GORM
+type AuthEventRepository struct {
+	db *gorm.DB
+}
+
+// NewAuthEventRepository creates a new auth event repository
+func NewAuthEventRepository(db *gorm.DB) *AuthEventRepository {
+	return &AuthEventRepository{db: db}
+}
+
+// Save saves an auth event
+func (r *AuthEventRepository) Save(ctx context.Context, event *model.AuthEvent) error {
+	return r.db.WithContext(ctx).Create(event).Error
+}
+
+// ListByUser lists auth events by user
+func (r *AuthEventRepository) ListByUser(ctx context.Context, userID string, limit int) ([]*model.AuthEvent, error) {
+	var events []*model.AuthEvent
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("occurred_at DESC").
+		Limit(limit).
+		Find(&events).Error
+	return events, err
+}
+
+// ListByEmail lists auth events by email
+func (r *AuthEventRepository) ListByEmail(ctx context.Context, email string, limit int) ([]*model.AuthEvent, error) {
+	var events []*model.AuthEvent
+	err := r.db.WithContext(ctx).
+		Where("email = ?", email).
+		Order("occurred_at DESC").
+		Limit(limit).
+		Find(&events).Error
+	return events, err
+}
+
+// CountFailedAttempts counts failed login attempts in a time window
+func (r *AuthEventRepository) CountFailedAttempts(ctx context.Context, email string, since time.Time) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.AuthEvent{}).
+		Where("email = ? AND type = ? AND success = ? AND occurred_at > ?",
+			email, "login", false, since).
+		Count(&count).Error
+	return count, err
+}
+
+// ============================================================================
+// Login Attempt Repository
+// ============================================================================
+
+// LoginAttemptRepository implements login attempt persistence with GORM
+type LoginAttemptRepository struct {
+	db *gorm.DB
+}
+
+// NewLoginAttemptRepository creates a new login attempt repository
+func NewLoginAttemptRepository(db *gorm.DB) *LoginAttemptRepository {
+	return &LoginAttemptRepository{db: db}
+}
+
+// Save saves a login attempt
+func (r *LoginAttemptRepository) Save(ctx context.Context, attempt *model.LoginAttempt) error {
+	return r.db.WithContext(ctx).Create(attempt).Error
+}
+
+// CountRecentFailed counts recent failed attempts
+func (r *LoginAttemptRepository) CountRecentFailed(ctx context.Context, email, ip string, since time.Time) (int64, error) {
+	var count int64
+	query := r.db.WithContext(ctx).Model(&model.LoginAttempt{}).Where("success = ? AND created_at > ?", false, since)
+
+	if email != "" {
+		query = query.Where("email = ?", email)
+	}
+	if ip != "" {
+		query = query.Where("ip_address = ?", ip)
+	}
+
+	err := query.Count(&count).Error
+	return count, err
+}
+
+// CleanupOld removes old login attempts
+func (r *LoginAttemptRepository) CleanupOld(ctx context.Context, before time.Time) error {
+	return r.db.WithContext(ctx).
+		Where("created_at < ?", before).
+		Delete(&model.LoginAttempt{}).Error
 }
