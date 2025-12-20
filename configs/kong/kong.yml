@@ -341,15 +341,212 @@ services:
           policy: local
 
   # ---------------------------------------------------------------------------
-  # HEALTH CHECK (Public - No auth)
+  # HEALTH CHECKS (Public - No auth, No rate limit)
+  # Real-world health endpoints for Kubernetes/Docker healthchecks
   # ---------------------------------------------------------------------------
-  - name: health-service
-    url: http://gateway:8000
+  
+  # Aggregated health check endpoint (checks all services)
+  - name: health-aggregated
+    url: http://gateway:8000/health/ready
     routes:
-      - name: health-routes
+      - name: health-aggregated-route
         paths:
           - /health
-        strip_path: false
+        strip_path: true
+
+  # Individual service health checks - live (is it running?)
+  - name: health-auth-live
+    url: http://auth:8001/health/live
+    routes:
+      - name: health-auth-live-route
+        paths:
+          - /health/auth/live
+        strip_path: true
+
+  - name: health-user-live
+    url: http://user:8002/health/live
+    routes:
+      - name: health-user-live-route
+        paths:
+          - /health/user/live
+        strip_path: true
+
+  - name: health-workflow-live
+    url: http://workflow:8004/health/live
+    routes:
+      - name: health-workflow-live-route
+        paths:
+          - /health/workflow/live
+        strip_path: true
+
+  - name: health-execution-live
+    url: http://execution:8003/health/live
+    routes:
+      - name: health-execution-live-route
+        paths:
+          - /health/execution/live
+        strip_path: true
+
+  - name: health-node-live
+    url: http://node:8005/health/live
+    routes:
+      - name: health-node-live-route
+        paths:
+          - /health/node/live
+        strip_path: true
+
+  - name: health-executor-live
+    url: http://executor:8007/health/live
+    routes:
+      - name: health-executor-live-route
+        paths:
+          - /health/executor/live
+        strip_path: true
+
+  - name: health-webhook-live
+    url: http://webhook:8008/health/live
+    routes:
+      - name: health-webhook-live-route
+        paths:
+          - /health/webhook/live
+        strip_path: true
+
+  - name: health-schedule-live
+    url: http://schedule:8009/health/live
+    routes:
+      - name: health-schedule-live-route
+        paths:
+          - /health/schedule/live
+        strip_path: true
+
+  - name: health-credential-live
+    url: http://credential:8010/health/live
+    routes:
+      - name: health-credential-live-route
+        paths:
+          - /health/credential/live
+        strip_path: true
+
+  - name: health-notification-live
+    url: http://notification:8011/health/live
+    routes:
+      - name: health-notification-live-route
+        paths:
+          - /health/notification/live
+        strip_path: true
+
+  - name: health-integration-live
+    url: http://integration:8012/health/live
+    routes:
+      - name: health-integration-live-route
+        paths:
+          - /health/integration/live
+        strip_path: true
+
+  - name: health-analytics-live
+    url: http://analytics:8013/health/live
+    routes:
+      - name: health-analytics-live-route
+        paths:
+          - /health/analytics/live
+        strip_path: true
+
+  - name: health-search-live
+    url: http://search:8014/health/live
+    routes:
+      - name: health-search-live-route
+        paths:
+          - /health/search/live
+        strip_path: true
+
+  - name: health-storage-live
+    url: http://storage:8015/health/live
+    routes:
+      - name: health-storage-live-route
+        paths:
+          - /health/storage/live
+        strip_path: true
+
+  - name: health-config-live
+    url: http://config:8016/health/live
+    routes:
+      - name: health-config-live-route
+        paths:
+          - /health/config/live
+        strip_path: true
+
+  - name: health-admin-live
+    url: http://admin:8017/health/live
+    routes:
+      - name: health-admin-live-route
+        paths:
+          - /health/admin/live
+        strip_path: true
+
+  - name: health-tenant-live
+    url: http://tenant:8019/health/live
+    routes:
+      - name: health-tenant-live-route
+        paths:
+          - /health/tenant/live
+        strip_path: true
+
+  - name: health-monitoring-live
+    url: http://monitoring:8020/health/live
+    routes:
+      - name: health-monitoring-live-route
+        paths:
+          - /health/monitoring/live
+        strip_path: true
+
+  - name: health-backup-live
+    url: http://backup:8021/health/live
+    routes:
+      - name: health-backup-live-route
+        paths:
+          - /health/backup/live
+        strip_path: true
+
+  - name: health-migration-live
+    url: http://migration:8022/health/live
+    routes:
+      - name: health-migration-live-route
+        paths:
+          - /health/migration/live
+        strip_path: true
+
+  # Individual service health checks - ready (can it accept traffic?)
+  - name: health-auth-ready
+    url: http://auth:8001/health/ready
+    routes:
+      - name: health-auth-ready-route
+        paths:
+          - /health/auth/ready
+        strip_path: true
+
+  - name: health-user-ready
+    url: http://user:8002/health/ready
+    routes:
+      - name: health-user-ready-route
+        paths:
+          - /health/user/ready
+        strip_path: true
+
+  - name: health-workflow-ready
+    url: http://workflow:8004/health/ready
+    routes:
+      - name: health-workflow-ready-route
+        paths:
+          - /health/workflow/ready
+        strip_path: true
+
+  - name: health-execution-ready
+    url: http://execution:8003/health/ready
+    routes:
+      - name: health-execution-ready-route
+        paths:
+          - /health/execution/ready
+        strip_path: true
 
 # =============================================================================
 # GLOBAL PLUGINS
