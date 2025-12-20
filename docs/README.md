@@ -10,6 +10,7 @@ docs/
 ├── getting-started/             # Setup and quick start guides
 │   ├── installation.md
 │   ├── quickstart.md
+│   ├── local-deployment.md
 │   └── configuration.md
 ├── architecture/                # System architecture docs
 │   ├── overview.md
@@ -40,6 +41,7 @@ docs/
 
 - [Installation Guide](getting-started/installation.md)
 - [Quick Start](getting-started/quickstart.md)
+- [Local Deployment](getting-started/local-deployment.md)
 - [API Reference](api/overview.md)
 - [Architecture Overview](architecture/overview.md)
 - [Node Types Reference](reference/node-types.md)
