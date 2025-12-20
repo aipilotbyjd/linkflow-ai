@@ -1,0 +1,46 @@
+# ============================================================================
+# LinkFlow AI - Production Environment
+# ============================================================================
+# Usage: make prod
+# Only Kong is exposed - all traffic routes through the API Gateway
+# ============================================================================
+
+services:
+
+  # ==========================================================================
+  # EDGE LAYER - ONLY EXPOSED SERVICE
+  # ==========================================================================
+
+  kong:
+    ports:
+      - "80:8000"       # HTTP proxy
+      - "443:8443"      # HTTPS proxy
+    environment:
+      KONG_ADMIN_LISTEN: "off"   # Disable admin API in production
+
+  # ==========================================================================
+  # MONITORING - Optional external access (remove for full lockdown)
+  # ==========================================================================
+
+  grafana:
+    ports:
+      - "3000:3000"     # Keep for monitoring dashboards
+    environment:
+      - GF_SERVER_ROOT_URL=https://grafana.linkflow.io
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD required}
+
+  # ==========================================================================
+  # DISABLE DEV TOOLS IN PRODUCTION
+  # ==========================================================================
+
+  adminer:
+    deploy:
+      replicas: 0
+
+  kafka-ui:
+    deploy:
+      replicas: 0
+
+  jaeger:
+    deploy:
+      replicas: 0

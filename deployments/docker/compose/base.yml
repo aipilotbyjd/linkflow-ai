@@ -1,0 +1,733 @@
+# ============================================================================
+# LinkFlow AI - Docker Compose Base Configuration
+# ============================================================================
+# DO NOT RUN DIRECTLY! Use: make dev or make prod
+# ============================================================================
+
+# ============================================================================
+# YAML ANCHORS (Reusable configurations)
+# ============================================================================
+
+x-logging: &logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-healthcheck: &healthcheck
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+x-service-base: &service-base
+  <<: *logging
+  restart: unless-stopped
+  env_file:
+    - ${ENV_FILE:-.env}
+
+# ============================================================================
+# NETWORKS (3-tier isolation)
+# ============================================================================
+
+networks:
+  # Public-facing network (Kong, Grafana)
+  edge-network:
+    name: linkflow-edge
+    driver: bridge
+  
+  # Application services network
+  app-network:
+    name: linkflow-app
+    driver: bridge
+  
+  # Database/cache network
+  data-network:
+    name: linkflow-data
+    driver: bridge
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  zookeeper_data:
+  elasticsearch_data:
+  grafana_data:
+  prometheus_data:
+
+# ============================================================================
+# SERVICES
+# ============================================================================
+
+services:
+
+  # ==========================================================================
+  # DATA LAYER
+  # ==========================================================================
+
+  postgres:
+    image: postgres:15-alpine
+    <<: *service-base
+    container_name: linkflow-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-linkflow}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      <<: *healthcheck
+    networks:
+      - data-network
+    mem_limit: 1g
+    cpus: 1
+
+  redis:
+    image: redis:7-alpine
+    <<: *service-base
+    container_name: linkflow-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      <<: *healthcheck
+    networks:
+      - data-network
+    mem_limit: 512m
+    cpus: 0.5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    <<: *service-base
+    container_name: linkflow-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - data-network
+    mem_limit: 512m
+    cpus: 0.5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    <<: *service-base
+    container_name: linkflow-kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    depends_on:
+      - zookeeper
+    networks:
+      - data-network
+    mem_limit: 1g
+    cpus: 1
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    <<: *service-base
+    container_name: linkflow-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE 'green|yellow'"]
+      <<: *healthcheck
+    networks:
+      - data-network
+    mem_limit: 1g
+    cpus: 1
+
+  # ==========================================================================
+  # EDGE LAYER (API Gateway)
+  # ==========================================================================
+
+  kong:
+    image: kong:3.4
+    <<: *service-base
+    container_name: linkflow-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ../../configs/kong:/kong
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      <<: *healthcheck
+    networks:
+      - edge-network
+      - app-network
+    mem_limit: 512m
+    cpus: 0.5
+
+  # ==========================================================================
+  # APPLICATION LAYER (Microservices)
+  # ==========================================================================
+
+  auth:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: auth
+    container_name: linkflow-auth
+    environment:
+      - HTTP_PORT=8001
+      - SERVICE_NAME=auth
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8001/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  gateway:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: gateway
+    container_name: linkflow-gateway
+    environment:
+      - HTTP_PORT=8000
+      - SERVICE_NAME=gateway
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+
+  user:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: user
+    container_name: linkflow-user
+    environment:
+      - HTTP_PORT=8002
+      - SERVICE_NAME=user
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8002/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  workflow:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: workflow
+    container_name: linkflow-workflow
+    environment:
+      - HTTP_PORT=8004
+      - SERVICE_NAME=workflow
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8004/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 512m
+    cpus: 0.5
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  execution:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: execution
+    container_name: linkflow-execution
+    environment:
+      - HTTP_PORT=8003
+      - SERVICE_NAME=execution
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8003/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 512m
+    cpus: 0.5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  node:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: node
+    container_name: linkflow-node
+    environment:
+      - HTTP_PORT=8005
+      - SERVICE_NAME=node
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8005/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  executor:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: executor
+    container_name: linkflow-executor
+    environment:
+      - HTTP_PORT=8007
+      - SERVICE_NAME=executor
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8007/health"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 512m
+    cpus: 0.5
+
+  webhook:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: webhook
+    container_name: linkflow-webhook
+    environment:
+      - HTTP_PORT=8008
+      - SERVICE_NAME=webhook
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8008/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  schedule:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: schedule
+    container_name: linkflow-schedule
+    environment:
+      - HTTP_PORT=8009
+      - SERVICE_NAME=schedule
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8009/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  credential:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: credential
+    container_name: linkflow-credential
+    environment:
+      - HTTP_PORT=8010
+      - SERVICE_NAME=credential
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8010/health"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: notification
+    container_name: linkflow-notification
+    environment:
+      - HTTP_PORT=8011
+      - SERVICE_NAME=notification
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8011/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  integration:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: integration
+    container_name: linkflow-integration
+    environment:
+      - HTTP_PORT=8012
+      - SERVICE_NAME=integration
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8012/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  analytics:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: analytics
+    container_name: linkflow-analytics
+    environment:
+      - HTTP_PORT=8013
+      - SERVICE_NAME=analytics
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8013/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  search:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: search
+    container_name: linkflow-search
+    environment:
+      - HTTP_PORT=8014
+      - SERVICE_NAME=search
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8014/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  storage:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: storage
+    container_name: linkflow-storage
+    environment:
+      - HTTP_PORT=8015
+      - SERVICE_NAME=storage
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8015/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+
+  config:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: config
+    container_name: linkflow-config
+    environment:
+      - HTTP_PORT=8016
+      - SERVICE_NAME=config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8016/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  admin:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: admin
+    container_name: linkflow-admin
+    environment:
+      - HTTP_PORT=8017
+      - SERVICE_NAME=admin
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8017/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  tenant:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: tenant
+    container_name: linkflow-tenant
+    environment:
+      - HTTP_PORT=8019
+      - SERVICE_NAME=tenant
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8019/health"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+
+  monitoring:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: monitoring
+    container_name: linkflow-monitoring
+    environment:
+      - HTTP_PORT=8020
+      - SERVICE_NAME=monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8020/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+
+  backup:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: backup
+    container_name: linkflow-backup
+    environment:
+      - HTTP_PORT=8021
+      - SERVICE_NAME=backup
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8021/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+
+  migration:
+    <<: *service-base
+    build:
+      context: ../../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        SERVICE_NAME: migration
+    container_name: linkflow-migration
+    environment:
+      - HTTP_PORT=8022
+      - SERVICE_NAME=migration
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8022/health/live"]
+      <<: *healthcheck
+    networks:
+      - app-network
+      - data-network
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ==========================================================================
+  # MONITORING STACK
+  # ==========================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    <<: *service-base
+    container_name: linkflow-prometheus
+    volumes:
+      - ../../configs/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - app-network
+    mem_limit: 512m
+    cpus: 0.5
+
+  grafana:
+    image: grafana/grafana:latest
+    <<: *service-base
+    container_name: linkflow-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../../configs/grafana:/etc/grafana/provisioning
+    networks:
+      - edge-network
+      - app-network
+    mem_limit: 256m
+    cpus: 0.25
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    <<: *service-base
+    container_name: linkflow-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - app-network
+    mem_limit: 512m
+    cpus: 0.5
+
+  # ==========================================================================
+  # ADMIN TOOLS
+  # ==========================================================================
+
+  adminer:
+    image: adminer:latest
+    <<: *service-base
+    container_name: linkflow-adminer
+    networks:
+      - data-network
+      - app-network
+    mem_limit: 128m
+    cpus: 0.25
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    <<: *service-base
+    container_name: linkflow-kafka-ui
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=linkflow
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - data-network
+      - app-network
+    mem_limit: 256m
+    cpus: 0.25

@@ -1,0 +1,390 @@
+# Kong Production Configuration
+# Strict rate limiting and security for production
+
+_format_version: "3.0"
+_transform: true
+
+services:
+  # Auth Service
+  - name: auth-service
+    url: http://auth:8001
+    routes:
+      - name: auth-routes
+        paths:
+          - /api/v1/auth
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 100
+          hour: 1000
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+      - name: bot-detection
+
+  # User Service
+  - name: user-service
+    url: http://user:8002
+    routes:
+      - name: user-routes
+        paths:
+          - /api/v1/users
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 200
+          hour: 2000
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Workflow Service
+  - name: workflow-service
+    url: http://workflow:8004
+    routes:
+      - name: workflow-routes
+        paths:
+          - /api/v1/workflows
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 500
+          hour: 5000
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Execution Service
+  - name: execution-service
+    url: http://execution:8003
+    routes:
+      - name: execution-routes
+        paths:
+          - /api/v1/executions
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 1000
+          hour: 10000
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Node Service
+  - name: node-service
+    url: http://node:8005
+    routes:
+      - name: node-routes
+        paths:
+          - /api/v1/nodes
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 500
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Schedule Service
+  - name: schedule-service
+    url: http://schedule:8009
+    routes:
+      - name: schedule-routes
+        paths:
+          - /api/v1/schedules
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 200
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Webhook Service
+  - name: webhook-service
+    url: http://webhook:8008
+    routes:
+      - name: webhook-routes
+        paths:
+          - /api/v1/webhooks
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 500
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Notification Service
+  - name: notification-service
+    url: http://notification:8011
+    routes:
+      - name: notification-routes
+        paths:
+          - /api/v1/notifications
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Analytics Service
+  - name: analytics-service
+    url: http://analytics:8013
+    routes:
+      - name: analytics-routes
+        paths:
+          - /api/v1/analytics
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 300
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Search Service
+  - name: search-service
+    url: http://search:8014
+    routes:
+      - name: search-routes
+        paths:
+          - /api/v1/search
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 300
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Storage Service
+  - name: storage-service
+    url: http://storage:8015
+    routes:
+      - name: storage-routes
+        paths:
+          - /api/v1/storage
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 100
+
+  # Credential Service
+  - name: credential-service
+    url: http://credential:8010
+    routes:
+      - name: credential-routes
+        paths:
+          - /api/v1/credentials
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 50
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Tenant Service
+  - name: tenant-service
+    url: http://tenant:8019
+    routes:
+      - name: tenant-routes
+        paths:
+          - /api/v1/tenants
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Admin Service - Restricted to internal IPs
+  - name: admin-service
+    url: http://admin:8017
+    routes:
+      - name: admin-routes
+        paths:
+          - /api/v1/admin
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: ip-restriction
+        config:
+          allow:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Executor Service
+  - name: executor-service
+    url: http://executor:8007
+    routes:
+      - name: executor-routes
+        paths:
+          - /api/v1/executor
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 1000
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Config Service - Restricted to internal IPs
+  - name: config-service
+    url: http://config:8016
+    routes:
+      - name: config-routes
+        paths:
+          - /api/v1/config
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: ip-restriction
+        config:
+          allow:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+
+  # Monitoring Service - Restricted to internal IPs
+  - name: monitoring-service
+    url: http://monitoring:8020
+    routes:
+      - name: monitoring-routes
+        paths:
+          - /api/v1/monitoring
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: ip-restriction
+        config:
+          allow:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+
+  # Integration Service
+  - name: integration-service
+    url: http://integration:8012
+    routes:
+      - name: integration-routes
+        paths:
+          - /api/v1/integrations
+        strip_path: false
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 200
+          policy: redis
+          redis_host: redis
+          redis_port: 6379
+
+  # Health Check (no auth)
+  - name: health-service
+    url: http://gateway:8000
+    routes:
+      - name: health-routes
+        paths:
+          - /health
+        strip_path: false
+
+plugins:
+  # Global CORS - Strict for production
+  - name: cors
+    config:
+      origins:
+        - https://app.linkflow.ai
+        - https://admin.linkflow.ai
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Request-ID
+        - X-Correlation-ID
+        - X-CSRF-Token
+      exposed_headers:
+        - X-Request-ID
+        - X-Correlation-ID
+      credentials: true
+      max_age: 3600
+
+  # Global security headers
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - X-Content-Type-Options:nosniff
+          - X-Frame-Options:DENY
+          - X-XSS-Protection:1; mode=block
+          - Strict-Transport-Security:max-age=31536000; includeSubDomains
+
+  # Global request ID
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-ID
+      generator: uuid
+
+consumers:
+  - username: linkflow-internal
+    custom_id: internal-service
+
+jwt_secrets:
+  - consumer: linkflow-internal
+    key: linkflow-jwt-key
+    secret: ${JWT_SECRET}
+    algorithm: HS256

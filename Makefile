@@ -1,5 +1,5 @@
 # LinkFlow AI - Makefile for Developer Productivity
-.PHONY: help dev test build clean docker-up docker-down migrate
+.PHONY: help dev prod stop restart status logs health shell build clean docker-up docker-down migrate
 
 # Variables
 SERVICES := gateway auth user execution workflow node tenant executor webhook schedule credential notification integration analytics search storage config migration backup admin monitoring
@@ -8,6 +8,8 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 GOBASE := $(shell pwd)
 GOBIN := $(GOBASE)/bin
 GOFILES := $(wildcard *.go)
+COMPOSE_DIR := deployments/docker/compose
+LINKFLOW := ./scripts/linkflow.sh
 
 # Colors for output
 GREEN := \033[0;32m
@@ -21,14 +23,20 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  ${GREEN}%-20s${NC} %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-dev: ## Start development environment
-	@echo "${GREEN}Starting development environment...${NC}"
-	docker-compose up -d postgres redis kafka elasticsearch
-	@echo "${GREEN}Waiting for services to be ready...${NC}"
-	@sleep 10
-	@$(MAKE) migrate
-	@echo "${GREEN}Starting services with hot reload...${NC}"
-	air -c .air.toml
+dev: ## Start development environment (all ports exposed)
+	@$(LINKFLOW) -d dev
+
+prod: ## Start production environment (Kong only)
+	@$(LINKFLOW) -d prod
+
+stop: ## Stop all services
+	@$(LINKFLOW) stop
+
+restart: ## Restart all services
+	@$(LINKFLOW) restart
+
+up: dev ## Alias for dev
+down: stop ## Alias for stop
 
 test: ## Run all tests
 	@echo "${GREEN}Running tests...${NC}"
@@ -63,15 +71,9 @@ build-docker: ## Build Docker images for all services
 	done
 	@echo "${GREEN}All Docker images built successfully${NC}"
 
-docker-up: ## Start all services with docker-compose
-	@echo "${GREEN}Starting Docker services...${NC}"
-	docker-compose up -d
-	@echo "${GREEN}Services started. Run 'docker-compose logs -f' to view logs${NC}"
+docker-up: dev ## Start all services (alias for dev)
 
-docker-down: ## Stop all docker-compose services
-	@echo "${YELLOW}Stopping Docker services...${NC}"
-	docker-compose down
-	@echo "${GREEN}Services stopped${NC}"
+docker-down: stop ## Stop all services (alias for stop)
 
 migrate: ## Run database migrations
 	@echo "${GREEN}Running migrations...${NC}"
@@ -139,7 +141,28 @@ k8s-delete: ## Delete Kubernetes deployment
 	kubectl delete -k deployments/kubernetes/overlays/dev/
 
 logs: ## Show logs for all services
-	docker-compose logs -f
+	@$(LINKFLOW) logs
+
+logs-%: ## Show logs for specific service (e.g., make logs-workflow)
+	@$(LINKFLOW) logs $*
+
+status: ## Show status of all services
+	@$(LINKFLOW) status
+
+health: ## Check health of all services
+	@$(LINKFLOW) health
+
+shell-%: ## Open shell in service (e.g., make shell-postgres)
+	@$(LINKFLOW) shell $*
+
+db-migrate: ## Run database migrations
+	@$(LINKFLOW) db migrate
+
+db-psql: ## Open PostgreSQL shell
+	@$(LINKFLOW) db psql
+
+db-reset: ## Reset database (WARNING: deletes all data)
+	@$(LINKFLOW) db reset
 
 clean: ## Clean build artifacts
 	@echo "${YELLOW}Cleaning build artifacts...${NC}"
@@ -158,14 +181,9 @@ build-all: ## Build all 21 services
 	@echo "${GREEN}All 21 services built successfully${NC}"
 	@ls -lh bin/
 
-start-all: ## Start all services
-	@./scripts/start-all.sh start
+start-all: dev ## Start all services (alias for dev)
 
-stop-all: ## Stop all services
-	@./scripts/start-all.sh stop
-
-status: ## Show status of all services
-	@./scripts/start-all.sh status
+stop-all: stop ## Stop all services (alias for stop)
 
 test-unit: ## Run unit tests only
 	@echo "${GREEN}Running unit tests...${NC}"
@@ -213,15 +231,5 @@ migrate-all: ## Run all migrations
 migrate-status: ## Show migration status
 	@echo "${GREEN}Migration status:${NC}"
 	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" version
-
-health: ## Check health of all services
-	@echo "${GREEN}Checking service health...${NC}"
-	@for port in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010 8011 8012 8013 8014 8015; do \
-		if curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health/live | grep -q "200"; then \
-			echo "Port $$port: ${GREEN}healthy${NC}"; \
-		else \
-			echo "Port $$port: ${RED}unhealthy${NC}"; \
-		fi; \
-	done
 
 .DEFAULT_GOAL := help
