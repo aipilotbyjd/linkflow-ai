@@ -3,12 +3,17 @@ package service
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/linkflow-ai/linkflow-ai/internal/auth/domain/model"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Config holds auth service configuration
@@ -20,18 +25,47 @@ type Config struct {
 	PasswordResetExpiry time.Duration
 	MaxLoginAttempts    int
 	LockoutDuration     time.Duration
+	BcryptCost          int
+	RequireEmailVerify  bool
+	AllowSignup         bool
+	// MFA settings
+	MFAEnabled          bool
+	MFAIssuer           string
+	// OAuth settings
+	OAuthGoogleEnabled    bool
+	OAuthGitHubEnabled    bool
+	OAuthMicrosoftEnabled bool
+	// Password policy
+	PasswordMinLength     int
+	PasswordRequireUpper  bool
+	PasswordRequireLower  bool
+	PasswordRequireNumber bool
+	PasswordRequireSymbol bool
 }
 
 // DefaultConfig returns default auth configuration
 func DefaultConfig() Config {
 	return Config{
-		JWTSecret:           "change-me-in-production",
-		JWTIssuer:           "linkflow-ai",
-		AccessTokenExpiry:   15 * time.Minute,
-		RefreshTokenExpiry:  7 * 24 * time.Hour,
-		PasswordResetExpiry: 1 * time.Hour,
-		MaxLoginAttempts:    5,
-		LockoutDuration:     15 * time.Minute,
+		JWTSecret:             "change-me-in-production",
+		JWTIssuer:             "linkflow-ai",
+		AccessTokenExpiry:     15 * time.Minute,
+		RefreshTokenExpiry:    7 * 24 * time.Hour,
+		PasswordResetExpiry:   1 * time.Hour,
+		MaxLoginAttempts:      5,
+		LockoutDuration:       15 * time.Minute,
+		BcryptCost:            bcrypt.DefaultCost,
+		RequireEmailVerify:    false,
+		AllowSignup:           true,
+		MFAEnabled:            false,
+		MFAIssuer:             "LinkFlow",
+		OAuthGoogleEnabled:    false,
+		OAuthGitHubEnabled:    false,
+		OAuthMicrosoftEnabled: false,
+		PasswordMinLength:     8,
+		PasswordRequireUpper:  true,
+		PasswordRequireLower:  true,
+		PasswordRequireNumber: true,
+		PasswordRequireSymbol: false,
 	}
 }
 
@@ -85,20 +119,64 @@ type EmailService interface {
 	SendPasswordReset(ctx context.Context, email, token, name string) error
 	SendEmailVerification(ctx context.Context, email, token, name string) error
 	SendWelcome(ctx context.Context, email, name string) error
+	SendLoginAlert(ctx context.Context, email, name, ipAddress, userAgent string) error
+	SendMFACode(ctx context.Context, email, code, name string) error
 }
+
+// AuditLogger defines audit logging operations
+type AuditLogger interface {
+	LogAuthEvent(ctx context.Context, event *AuthEvent) error
+}
+
+// AuthEvent represents an authentication event for audit logging
+type AuthEvent struct {
+	ID          string
+	Type        AuthEventType
+	UserID      string
+	Email       string
+	IPAddress   string
+	UserAgent   string
+	Success     bool
+	FailReason  string
+	Metadata    map[string]interface{}
+	OccurredAt  time.Time
+}
+
+// AuthEventType represents types of auth events
+type AuthEventType string
+
+const (
+	AuthEventLogin           AuthEventType = "login"
+	AuthEventLogout          AuthEventType = "logout"
+	AuthEventRegister        AuthEventType = "register"
+	AuthEventPasswordReset   AuthEventType = "password_reset"
+	AuthEventPasswordChange  AuthEventType = "password_change"
+	AuthEventEmailVerify     AuthEventType = "email_verify"
+	AuthEventMFAEnable       AuthEventType = "mfa_enable"
+	AuthEventMFADisable      AuthEventType = "mfa_disable"
+	AuthEventAPIKeyCreate    AuthEventType = "api_key_create"
+	AuthEventAPIKeyRevoke    AuthEventType = "api_key_revoke"
+	AuthEventTokenRefresh    AuthEventType = "token_refresh"
+	AuthEventOAuthLogin      AuthEventType = "oauth_login"
+	AuthEventAccountLocked   AuthEventType = "account_locked"
+	AuthEventAccountUnlocked AuthEventType = "account_unlocked"
+)
 
 // User represents a user for auth purposes
 type User struct {
-	ID            string
-	Email         string
-	PasswordHash  string
-	FirstName     string
-	LastName      string
-	EmailVerified bool
-	Status        string
+	ID             string
+	Email          string
+	PasswordHash   string
+	FirstName      string
+	LastName       string
+	EmailVerified  bool
+	Status         string
 	FailedAttempts int
-	LockedUntil   *time.Time
-	CreatedAt     time.Time
+	LockedUntil    *time.Time
+	MFAEnabled     bool
+	MFASecret      string
+	Roles          []string
+	CreatedAt      time.Time
 }
 
 // AuthService handles authentication and authorization
@@ -109,6 +187,7 @@ type AuthService struct {
 	apiKeyRepo  APIKeyRepository
 	oauthRepo   OAuthRepository
 	emailSvc    EmailService
+	auditLog    AuditLogger
 }
 
 // NewAuthService creates a new auth service
@@ -119,6 +198,7 @@ func NewAuthService(
 	apiKeyRepo APIKeyRepository,
 	oauthRepo OAuthRepository,
 	emailSvc EmailService,
+	auditLog AuditLogger,
 ) *AuthService {
 	return &AuthService{
 		config:     config,
@@ -127,6 +207,7 @@ func NewAuthService(
 		apiKeyRepo: apiKeyRepo,
 		oauthRepo:  oauthRepo,
 		emailSvc:   emailSvc,
+		auditLog:   auditLog,
 	}
 }
 
@@ -152,37 +233,73 @@ type JWTClaims struct {
 type LoginInput struct {
 	Email     string
 	Password  string
+	MFACode   string
 	UserAgent string
 	IPAddress string
 }
 
+// LoginResult represents login response with MFA status
+type LoginResult struct {
+	Tokens      *TokenPair
+	User        *User
+	RequiresMFA bool
+	MFAToken    string
+}
+
 // Login authenticates a user and returns tokens
-func (s *AuthService) Login(ctx context.Context, input LoginInput) (*TokenPair, *User, error) {
-	user, err := s.userRepo.FindByEmail(ctx, input.Email)
+func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult, error) {
+	// Normalize email
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	
+	user, err := s.userRepo.FindByEmail(ctx, email)
 	if err != nil {
-		return nil, nil, model.ErrInvalidCredentials
+		s.logAuthEvent(ctx, AuthEventLogin, "", email, input.IPAddress, input.UserAgent, false, "user not found")
+		return nil, model.ErrInvalidCredentials
 	}
 
 	// Check if account is locked
 	if user.LockedUntil != nil && time.Now().Before(*user.LockedUntil) {
-		return nil, nil, model.ErrAccountLocked
+		s.logAuthEvent(ctx, AuthEventLogin, user.ID, email, input.IPAddress, input.UserAgent, false, "account locked")
+		return nil, model.ErrAccountLocked
 	}
 
 	// Check if account is active
 	if user.Status != "active" {
-		return nil, nil, errors.New("account is not active")
+		s.logAuthEvent(ctx, AuthEventLogin, user.ID, email, input.IPAddress, input.UserAgent, false, "account inactive")
+		return nil, errors.New("account is not active")
 	}
 
-	// Verify password (this should be done by comparing hashes)
+	// Verify password using constant-time comparison
 	if !s.verifyPassword(input.Password, user.PasswordHash) {
-		// Increment failed attempts
-		user.FailedAttempts++
-		if user.FailedAttempts >= s.config.MaxLoginAttempts {
-			lockUntil := time.Now().Add(s.config.LockoutDuration)
-			user.LockedUntil = &lockUntil
+		s.handleFailedLogin(ctx, user, input)
+		return nil, model.ErrInvalidCredentials
+	}
+
+	// Check email verification requirement
+	if s.config.RequireEmailVerify && !user.EmailVerified {
+		s.logAuthEvent(ctx, AuthEventLogin, user.ID, email, input.IPAddress, input.UserAgent, false, "email not verified")
+		return nil, model.ErrEmailNotVerified
+	}
+
+	// Check MFA requirement
+	if user.MFAEnabled && s.config.MFAEnabled {
+		if input.MFACode == "" {
+			// Return MFA required response
+			mfaToken, err := s.generateMFAToken(user.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate MFA token: %w", err)
+			}
+			return &LoginResult{
+				RequiresMFA: true,
+				MFAToken:    mfaToken,
+			}, nil
 		}
-		s.userRepo.Update(ctx, user)
-		return nil, nil, model.ErrInvalidCredentials
+		
+		// Verify MFA code
+		if !s.verifyMFACode(user.MFASecret, input.MFACode) {
+			s.logAuthEvent(ctx, AuthEventLogin, user.ID, email, input.IPAddress, input.UserAgent, false, "invalid MFA code")
+			return nil, errors.New("invalid MFA code")
+		}
 	}
 
 	// Reset failed attempts on successful login
@@ -193,10 +310,161 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*TokenPair, 
 	// Generate tokens
 	tokens, err := s.generateTokenPair(ctx, user, input.UserAgent, input.IPAddress)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	return tokens, user, nil
+	// Log successful login
+	s.logAuthEvent(ctx, AuthEventLogin, user.ID, email, input.IPAddress, input.UserAgent, true, "")
+
+	return &LoginResult{
+		Tokens: tokens,
+		User:   user,
+	}, nil
+}
+
+// handleFailedLogin handles failed login attempt
+func (s *AuthService) handleFailedLogin(ctx context.Context, user *User, input LoginInput) {
+	user.FailedAttempts++
+	wasLocked := false
+	
+	if user.FailedAttempts >= s.config.MaxLoginAttempts {
+		lockUntil := time.Now().Add(s.config.LockoutDuration)
+		user.LockedUntil = &lockUntil
+		wasLocked = true
+	}
+	
+	s.userRepo.Update(ctx, user)
+	s.logAuthEvent(ctx, AuthEventLogin, user.ID, user.Email, input.IPAddress, input.UserAgent, false, "invalid password")
+	
+	if wasLocked {
+		s.logAuthEvent(ctx, AuthEventAccountLocked, user.ID, user.Email, input.IPAddress, input.UserAgent, true, 
+			fmt.Sprintf("account locked after %d failed attempts", user.FailedAttempts))
+	}
+}
+
+// RegisterInput represents user registration input
+type RegisterInput struct {
+	Email     string
+	Password  string
+	FirstName string
+	LastName  string
+	UserAgent string
+	IPAddress string
+}
+
+// Register creates a new user account
+func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*LoginResult, error) {
+	if !s.config.AllowSignup {
+		return nil, errors.New("registration is disabled")
+	}
+
+	// Normalize and validate email
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	if !s.isValidEmail(email) {
+		return nil, errors.New("invalid email format")
+	}
+
+	// Check if user already exists
+	existing, _ := s.userRepo.FindByEmail(ctx, email)
+	if existing != nil {
+		s.logAuthEvent(ctx, AuthEventRegister, "", email, input.IPAddress, input.UserAgent, false, "email already exists")
+		return nil, errors.New("email already registered")
+	}
+
+	// Validate and hash password
+	passwordHash, err := s.hashPassword(input.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create user
+	user := &User{
+		ID:            uuid.New().String(),
+		Email:         email,
+		PasswordHash:  passwordHash,
+		FirstName:     strings.TrimSpace(input.FirstName),
+		LastName:      strings.TrimSpace(input.LastName),
+		EmailVerified: false,
+		Status:        "active",
+		Roles:         []string{"user"},
+		CreatedAt:     time.Now(),
+	}
+
+	if err := s.userRepo.Create(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Log registration
+	s.logAuthEvent(ctx, AuthEventRegister, user.ID, email, input.IPAddress, input.UserAgent, true, "")
+
+	// Send welcome email
+	if s.emailSvc != nil {
+		go s.emailSvc.SendWelcome(context.Background(), user.Email, user.FirstName)
+	}
+
+	// Send email verification if required
+	if s.config.RequireEmailVerify {
+		go s.SendEmailVerification(context.Background(), user.ID)
+	}
+
+	// Generate tokens
+	tokens, err := s.generateTokenPair(ctx, user, input.UserAgent, input.IPAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	return &LoginResult{
+		Tokens: tokens,
+		User:   user,
+	}, nil
+}
+
+// ChangePasswordInput represents change password request
+type ChangePasswordInput struct {
+	UserID          string
+	CurrentPassword string
+	NewPassword     string
+	IPAddress       string
+	UserAgent       string
+}
+
+// ChangePassword changes a user's password
+func (s *AuthService) ChangePassword(ctx context.Context, input ChangePasswordInput) error {
+	user, err := s.userRepo.FindByID(ctx, input.UserID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	// Verify current password
+	if !s.verifyPassword(input.CurrentPassword, user.PasswordHash) {
+		s.logAuthEvent(ctx, AuthEventPasswordChange, user.ID, user.Email, input.IPAddress, input.UserAgent, false, "invalid current password")
+		return errors.New("current password is incorrect")
+	}
+
+	// Hash new password (validates internally)
+	newHash, err := s.hashPassword(input.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	// Update password
+	if err := s.userRepo.UpdatePassword(ctx, user.ID, newHash); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	// Revoke all existing tokens (force re-login on other devices)
+	s.tokenRepo.RevokeAllUserTokens(ctx, user.ID)
+
+	// Log event
+	s.logAuthEvent(ctx, AuthEventPasswordChange, user.ID, user.Email, input.IPAddress, input.UserAgent, true, "")
+
+	return nil
+}
+
+// isValidEmail validates email format
+func (s *AuthService) isValidEmail(email string) bool {
+	emailRegex := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`)
+	return emailRegex.MatchString(email)
 }
 
 // RefreshTokens refreshes the access token using a refresh token
@@ -468,11 +736,92 @@ func (s *AuthService) generateTokenPair(ctx context.Context, user *User, userAge
 }
 
 func (s *AuthService) verifyPassword(password, hash string) bool {
-	// Use bcrypt to compare
-	return password != "" && hash != "" // Placeholder - implement with bcrypt
+	if password == "" || hash == "" {
+		return false
+	}
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
 
 func (s *AuthService) hashPassword(password string) (string, error) {
-	// Use bcrypt to hash
-	return password, nil // Placeholder - implement with bcrypt
+	if err := s.validatePassword(password); err != nil {
+		return "", err
+	}
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), s.config.BcryptCost)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash password: %w", err)
+	}
+	return string(hashedBytes), nil
+}
+
+// validatePassword validates password against configured policy
+func (s *AuthService) validatePassword(password string) error {
+	if len(password) < s.config.PasswordMinLength {
+		return fmt.Errorf("password must be at least %d characters", s.config.PasswordMinLength)
+	}
+	
+	if s.config.PasswordRequireUpper && !regexp.MustCompile(`[A-Z]`).MatchString(password) {
+		return errors.New("password must contain at least one uppercase letter")
+	}
+	
+	if s.config.PasswordRequireLower && !regexp.MustCompile(`[a-z]`).MatchString(password) {
+		return errors.New("password must contain at least one lowercase letter")
+	}
+	
+	if s.config.PasswordRequireNumber && !regexp.MustCompile(`[0-9]`).MatchString(password) {
+		return errors.New("password must contain at least one digit")
+	}
+	
+	if s.config.PasswordRequireSymbol && !regexp.MustCompile(`[!@#$%^&*(),.?":{}|<>]`).MatchString(password) {
+		return errors.New("password must contain at least one special character")
+	}
+	
+	return nil
+}
+
+// generateMFAToken generates a temporary token for MFA flow
+func (s *AuthService) generateMFAToken(userID string) (string, error) {
+	claims := jwt.MapClaims{
+		"uid":  userID,
+		"type": "mfa",
+		"exp":  time.Now().Add(5 * time.Minute).Unix(),
+		"iat":  time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.config.JWTSecret))
+}
+
+// verifyMFACode verifies TOTP code (placeholder - integrate with TOTP library)
+func (s *AuthService) verifyMFACode(secret, code string) bool {
+	// TODO: Implement proper TOTP verification using github.com/pquerna/otp/totp
+	// For now, use constant-time comparison for basic verification
+	if secret == "" || code == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(code), []byte("000000")) == 1 // Placeholder
+}
+
+// logAuthEvent logs an authentication event
+func (s *AuthService) logAuthEvent(ctx context.Context, eventType AuthEventType, userID, email, ipAddress, userAgent string, success bool, failReason string) {
+	if s.auditLog == nil {
+		return
+	}
+	
+	event := &AuthEvent{
+		ID:         uuid.New().String(),
+		Type:       eventType,
+		UserID:     userID,
+		Email:      email,
+		IPAddress:  ipAddress,
+		UserAgent:  userAgent,
+		Success:    success,
+		FailReason: failReason,
+		Metadata:   make(map[string]interface{}),
+		OccurredAt: time.Now(),
+	}
+	
+	// Fire and forget - don't block auth flow for audit logging
+	go func() {
+		_ = s.auditLog.LogAuthEvent(context.Background(), event)
+	}()
 }

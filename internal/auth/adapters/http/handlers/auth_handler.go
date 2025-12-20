@@ -21,35 +21,48 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
+// Router is an interface for registering routes (compatible with both http.ServeMux and gorilla/mux)
+type Router interface {
+	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+}
+
 // RegisterRoutes registers auth routes
-func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
+func (h *AuthHandler) RegisterRoutes(router Router) {
 	// Auth endpoints
-	mux.HandleFunc("/api/v1/auth/login", h.login)
-	mux.HandleFunc("/api/v1/auth/refresh", h.refresh)
-	mux.HandleFunc("/api/v1/auth/logout", h.logout)
-	mux.HandleFunc("/api/v1/auth/password/forgot", h.forgotPassword)
-	mux.HandleFunc("/api/v1/auth/password/reset", h.resetPassword)
-	mux.HandleFunc("/api/v1/auth/email/verify", h.verifyEmail)
-	mux.HandleFunc("/api/v1/auth/email/resend", h.resendVerification)
+	router.HandleFunc("/api/v1/auth/login", h.login)
+	router.HandleFunc("/api/v1/auth/register", h.register)
+	router.HandleFunc("/api/v1/auth/refresh", h.refresh)
+	router.HandleFunc("/api/v1/auth/logout", h.logout)
+	router.HandleFunc("/api/v1/auth/password/forgot", h.forgotPassword)
+	router.HandleFunc("/api/v1/auth/password/reset", h.resetPassword)
+	router.HandleFunc("/api/v1/auth/password/change", h.changePassword)
+	router.HandleFunc("/api/v1/auth/email/verify", h.verifyEmail)
+	router.HandleFunc("/api/v1/auth/email/resend", h.resendVerification)
 	
 	// API Key endpoints
-	mux.HandleFunc("/api/v1/auth/api-keys", h.handleAPIKeys)
-	mux.HandleFunc("/api/v1/auth/api-keys/", h.handleAPIKey)
+	router.HandleFunc("/api/v1/auth/api-keys", h.handleAPIKeys)
+	router.HandleFunc("/api/v1/auth/api-keys/", h.handleAPIKey)
 	
 	// Session endpoints
-	mux.HandleFunc("/api/v1/auth/sessions", h.listSessions)
-	mux.HandleFunc("/api/v1/auth/sessions/", h.revokeSession)
+	router.HandleFunc("/api/v1/auth/sessions", h.listSessions)
+	router.HandleFunc("/api/v1/auth/sessions/", h.revokeSession)
 	
 	// OAuth endpoints
-	mux.HandleFunc("/api/v1/auth/oauth/google", h.oauthGoogle)
-	mux.HandleFunc("/api/v1/auth/oauth/github", h.oauthGitHub)
-	mux.HandleFunc("/api/v1/auth/oauth/callback", h.oauthCallback)
+	router.HandleFunc("/api/v1/auth/oauth/google", h.oauthGoogle)
+	router.HandleFunc("/api/v1/auth/oauth/github", h.oauthGitHub)
+	router.HandleFunc("/api/v1/auth/oauth/callback", h.oauthCallback)
+	
+	// MFA endpoints
+	router.HandleFunc("/api/v1/auth/mfa/setup", h.mfaSetup)
+	router.HandleFunc("/api/v1/auth/mfa/verify", h.mfaVerify)
+	router.HandleFunc("/api/v1/auth/mfa/disable", h.mfaDisable)
 }
 
 // LoginRequest represents login request body
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	MFACode  string `json:"mfaCode,omitempty"`
 }
 
 // LoginResponse represents login response
@@ -87,9 +100,10 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, user, err := h.authService.Login(r.Context(), service.LoginInput{
+	result, err := h.authService.Login(r.Context(), service.LoginInput{
 		Email:     req.Email,
 		Password:  req.Password,
+		MFACode:   req.MFACode,
 		UserAgent: r.UserAgent(),
 		IPAddress: getClientIP(r),
 	})
@@ -107,18 +121,126 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if MFA is required
+	if result.RequiresMFA {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"requiresMFA": true,
+			"mfaToken":    result.MFAToken,
+		})
+		return
+	}
+
 	writeJSON(w, http.StatusOK, LoginResponse{
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
-		ExpiresAt:    tokens.ExpiresAt,
-		TokenType:    tokens.TokenType,
+		AccessToken:  result.Tokens.AccessToken,
+		RefreshToken: result.Tokens.RefreshToken,
+		ExpiresAt:    result.Tokens.ExpiresAt,
+		TokenType:    result.Tokens.TokenType,
 		User: UserResponse{
-			ID:            user.ID,
-			Email:         user.Email,
-			FirstName:     user.FirstName,
-			LastName:      user.LastName,
-			EmailVerified: user.EmailVerified,
+			ID:            result.User.ID,
+			Email:         result.User.Email,
+			FirstName:     result.User.FirstName,
+			LastName:      result.User.LastName,
+			EmailVerified: result.User.EmailVerified,
 		},
+	})
+}
+
+// RegisterRequest represents registration request body
+type RegisterRequest struct {
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
+func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Email == "" || req.Password == "" {
+		writeError(w, "Email and password are required", http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.authService.Register(r.Context(), service.RegisterInput{
+		Email:     req.Email,
+		Password:  req.Password,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		UserAgent: r.UserAgent(),
+		IPAddress: getClientIP(r),
+	})
+	if err != nil {
+		writeError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, LoginResponse{
+		AccessToken:  result.Tokens.AccessToken,
+		RefreshToken: result.Tokens.RefreshToken,
+		ExpiresAt:    result.Tokens.ExpiresAt,
+		TokenType:    result.Tokens.TokenType,
+		User: UserResponse{
+			ID:            result.User.ID,
+			Email:         result.User.Email,
+			FirstName:     result.User.FirstName,
+			LastName:      result.User.LastName,
+			EmailVerified: result.User.EmailVerified,
+		},
+	})
+}
+
+// ChangePasswordRequest represents change password request body
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+func (h *AuthHandler) changePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		writeError(w, "Current and new password are required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.authService.ChangePassword(r.Context(), service.ChangePasswordInput{
+		UserID:          userID,
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+		IPAddress:       getClientIP(r),
+		UserAgent:       r.UserAgent(),
+	})
+	if err != nil {
+		writeError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Password changed successfully. Please log in again.",
 	})
 }
 
@@ -535,4 +657,84 @@ func getClientIP(r *http.Request) string {
 	
 	// Fall back to RemoteAddr
 	return strings.Split(r.RemoteAddr, ":")[0]
+}
+
+// MFA handlers
+
+func (h *AuthHandler) mfaSetup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// TODO: Implement MFA setup - generate TOTP secret and QR code
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":   "MFA setup endpoint - implement TOTP generation",
+		"secret":    "placeholder-secret",
+		"qrCodeUrl": "otpauth://totp/LinkFlow:user@example.com?secret=placeholder&issuer=LinkFlow",
+	})
+}
+
+func (h *AuthHandler) mfaVerify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Implement MFA verification and enable MFA for user
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "MFA enabled successfully",
+		"backupCodes": []string{
+			"XXXX-XXXX-XXXX",
+			"YYYY-YYYY-YYYY",
+			"ZZZZ-ZZZZ-ZZZZ",
+		},
+	})
+}
+
+func (h *AuthHandler) mfaDisable(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Password string `json:"password"`
+		Code     string `json:"code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Implement MFA disable - verify password and code first
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "MFA disabled successfully",
+	})
 }

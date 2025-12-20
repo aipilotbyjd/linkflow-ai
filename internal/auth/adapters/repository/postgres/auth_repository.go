@@ -4,7 +4,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/linkflow-ai/linkflow-ai/internal/auth/domain/model"
@@ -330,31 +329,59 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// AuthUser represents a user for the auth service (to avoid import cycles)
+type AuthUser struct {
+	ID             string
+	Email          string
+	PasswordHash   string
+	FirstName      string
+	LastName       string
+	EmailVerified  bool
+	Status         string
+	FailedAttempts int
+	LockedUntil    *time.Time
+	MFAEnabled     bool
+	MFASecret      string
+	Roles          []string
+	CreatedAt      time.Time
+}
+
 // FindByID finds a user by ID
-func (r *UserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*AuthUser, error) {
 	query := `
-		SELECT id, email, password_hash, first_name, last_name, email_verified, status, failed_attempts, locked_until, created_at
+		SELECT id, email, password_hash, first_name, last_name, email_verified, status, 
+		       failed_attempts, locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
 		FROM users WHERE id = $1 AND deleted_at IS NULL
 	`
 	return r.scanUser(r.db.QueryRowContext(ctx, query, id))
 }
 
 // FindByEmail finds a user by email
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*AuthUser, error) {
 	query := `
-		SELECT id, email, password_hash, first_name, last_name, email_verified, status, failed_attempts, locked_until, created_at
+		SELECT id, email, password_hash, first_name, last_name, email_verified, status, 
+		       failed_attempts, locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
 		FROM users WHERE email = $1 AND deleted_at IS NULL
 	`
 	return r.scanUser(r.db.QueryRowContext(ctx, query, email))
 }
 
-// Create creates a new user (for auth, actual user creation is in user service)
-func (r *UserRepository) Create(ctx context.Context, user *User) error {
-	return fmt.Errorf("use user service to create users")
+// Create creates a new user
+func (r *UserRepository) Create(ctx context.Context, user *AuthUser) error {
+	query := `
+		INSERT INTO users (id, email, password_hash, first_name, last_name, email_verified, status, 
+		                   failed_attempts, mfa_enabled, mfa_secret, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		user.ID, user.Email, user.PasswordHash, user.FirstName, user.LastName,
+		user.EmailVerified, user.Status, user.FailedAttempts, user.MFAEnabled, user.MFASecret, user.CreatedAt,
+	)
+	return err
 }
 
 // Update updates user auth fields
-func (r *UserRepository) Update(ctx context.Context, user *User) error {
+func (r *UserRepository) Update(ctx context.Context, user *AuthUser) error {
 	query := `
 		UPDATE users SET failed_attempts = $1, locked_until = $2, updated_at = NOW()
 		WHERE id = $3
@@ -377,28 +404,16 @@ func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) error {
 	return err
 }
 
-func (r *UserRepository) scanUser(row *sql.Row) (*User, error) {
-	var u User
+func (r *UserRepository) scanUser(row *sql.Row) (*AuthUser, error) {
+	var u AuthUser
 	err := row.Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName,
-		&u.EmailVerified, &u.Status, &u.FailedAttempts, &u.LockedUntil, &u.CreatedAt,
+		&u.EmailVerified, &u.Status, &u.FailedAttempts, &u.LockedUntil,
+		&u.MFAEnabled, &u.MFASecret, &u.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
+	u.Roles = []string{"user"} // Default role
 	return &u, nil
-}
-
-// User for service - auth user representation
-type User struct {
-	ID             string
-	Email          string
-	PasswordHash   string
-	FirstName      string
-	LastName       string
-	EmailVerified  bool
-	Status         string
-	FailedAttempts int
-	LockedUntil    *time.Time
-	CreatedAt      time.Time
 }
