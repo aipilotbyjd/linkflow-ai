@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/linkflow-ai/linkflow-ai/internal/auth/domain/model"
@@ -145,13 +146,25 @@ func NewAPIKeyRepository(db *sql.DB) *APIKeyRepository {
 
 // Save saves an API key
 func (r *APIKeyRepository) Save(ctx context.Context, key *model.APIKey) error {
+	// Convert scopes to JSON
+	scopesJSON, err := json.Marshal(key.Scopes)
+	if err != nil {
+		return err
+	}
+	
+	// Handle empty workspace_id
+	var workspaceID interface{}
+	if key.WorkspaceID != "" {
+		workspaceID = key.WorkspaceID
+	}
+	
 	query := `
 		INSERT INTO api_keys (id, user_id, workspace_id, name, key_hash, key_prefix, scopes, expires_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := r.db.ExecContext(ctx, query,
-		key.ID, key.UserID, key.WorkspaceID, key.Name,
-		key.KeyHash, key.KeyPrefix, key.Scopes, key.ExpiresAt, key.CreatedAt,
+	_, err = r.db.ExecContext(ctx, query,
+		key.ID, key.UserID, workspaceID, key.Name,
+		key.KeyHash, key.KeyPrefix, scopesJSON, key.ExpiresAt, key.CreatedAt,
 	)
 	return err
 }
@@ -333,6 +346,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 type AuthUser struct {
 	ID             string
 	Email          string
+	Username       string
 	PasswordHash   string
 	FirstName      string
 	LastName       string
@@ -349,8 +363,8 @@ type AuthUser struct {
 // FindByID finds a user by ID
 func (r *UserRepository) FindByID(ctx context.Context, id string) (*AuthUser, error) {
 	query := `
-		SELECT id, email, password_hash, first_name, last_name, email_verified, status, 
-		       failed_attempts, locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
+		SELECT id, email, username, password_hash, first_name, last_name, email_verified, status, 
+		       COALESCE(failed_login_count, 0), locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
 		FROM users WHERE id = $1 AND deleted_at IS NULL
 	`
 	return r.scanUser(r.db.QueryRowContext(ctx, query, id))
@@ -359,8 +373,8 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (*AuthUser, er
 // FindByEmail finds a user by email
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*AuthUser, error) {
 	query := `
-		SELECT id, email, password_hash, first_name, last_name, email_verified, status, 
-		       failed_attempts, locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
+		SELECT id, email, username, password_hash, first_name, last_name, email_verified, status, 
+		       COALESCE(failed_login_count, 0), locked_until, COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), created_at
 		FROM users WHERE email = $1 AND deleted_at IS NULL
 	`
 	return r.scanUser(r.db.QueryRowContext(ctx, query, email))
@@ -368,13 +382,19 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*AuthUs
 
 // Create creates a new user
 func (r *UserRepository) Create(ctx context.Context, user *AuthUser) error {
+	// Generate username from email if not provided
+	username := user.Username
+	if username == "" {
+		username = user.Email // Use email as username
+	}
+	
 	query := `
-		INSERT INTO users (id, email, password_hash, first_name, last_name, email_verified, status, 
-		                   failed_attempts, mfa_enabled, mfa_secret, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+		INSERT INTO users (id, email, username, password_hash, first_name, last_name, email_verified, status, 
+		                   failed_login_count, mfa_enabled, mfa_secret, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
 	`
 	_, err := r.db.ExecContext(ctx, query,
-		user.ID, user.Email, user.PasswordHash, user.FirstName, user.LastName,
+		user.ID, user.Email, username, user.PasswordHash, user.FirstName, user.LastName,
 		user.EmailVerified, user.Status, user.FailedAttempts, user.MFAEnabled, user.MFASecret, user.CreatedAt,
 	)
 	return err
@@ -383,7 +403,7 @@ func (r *UserRepository) Create(ctx context.Context, user *AuthUser) error {
 // Update updates user auth fields
 func (r *UserRepository) Update(ctx context.Context, user *AuthUser) error {
 	query := `
-		UPDATE users SET failed_attempts = $1, locked_until = $2, updated_at = NOW()
+		UPDATE users SET failed_login_count = $1, locked_until = $2, updated_at = NOW()
 		WHERE id = $3
 	`
 	_, err := r.db.ExecContext(ctx, query, user.FailedAttempts, user.LockedUntil, user.ID)
@@ -407,7 +427,7 @@ func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) error {
 func (r *UserRepository) scanUser(row *sql.Row) (*AuthUser, error) {
 	var u AuthUser
 	err := row.Scan(
-		&u.ID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName,
+		&u.ID, &u.Email, &u.Username, &u.PasswordHash, &u.FirstName, &u.LastName,
 		&u.EmailVerified, &u.Status, &u.FailedAttempts, &u.LockedUntil,
 		&u.MFAEnabled, &u.MFASecret, &u.CreatedAt,
 	)
