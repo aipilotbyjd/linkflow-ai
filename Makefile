@@ -75,18 +75,24 @@ docker-down: ## Stop all docker-compose services
 
 migrate: ## Run database migrations
 	@echo "${GREEN}Running migrations...${NC}"
-	@for service in $(SERVICES); do \
-		echo "Migrating $$service schema..."; \
-		migrate -path migrations/$$service -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable&search_path=$$service" up || exit 1; \
-	done
+	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" up
 	@echo "${GREEN}Migrations completed${NC}"
 
-migrate-down: ## Rollback database migrations
-	@echo "${YELLOW}Rolling back migrations...${NC}"
-	@for service in $(SERVICES); do \
-		echo "Rolling back $$service schema..."; \
-		migrate -path migrations/$$service -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable&search_path=$$service" down 1; \
-	done
+migrate-down: ## Rollback database migrations (1 step)
+	@echo "${YELLOW}Rolling back migration...${NC}"
+	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" down 1
+
+migrate-down-all: ## Rollback all migrations
+	@echo "${YELLOW}Rolling back all migrations...${NC}"
+	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" down -all
+
+migrate-version: ## Show current migration version
+	@echo "${GREEN}Current migration version:${NC}"
+	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" version
+
+migrate-force: ## Force migration version (usage: make migrate-force V=000001)
+	@echo "${YELLOW}Forcing migration version to $(V)...${NC}"
+	migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/linkflow?sslmode=disable" force $(V)
 
 seed: ## Seed development data
 	@echo "${GREEN}Seeding development data...${NC}"
