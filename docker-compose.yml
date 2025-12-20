@@ -6,7 +6,7 @@ x-service-defaults: &service-defaults
     context: .
     dockerfile: deployments/docker/Dockerfile
   env_file:
-    - .env.example
+    - .env
   networks:
     - linkflow-network
   restart: unless-stopped

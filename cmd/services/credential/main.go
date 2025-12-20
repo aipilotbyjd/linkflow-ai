@@ -30,8 +30,9 @@ type Server struct {
 func main() {
 	// Initialize logger
 	log := logger.New(config.LoggerConfig{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		OutputPath: "stdout",
 	})
 	log.Info("Starting Credential Service", "port", servicePort)
 

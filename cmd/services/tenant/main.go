@@ -29,7 +29,7 @@ type Server struct {
 }
 
 func main() {
-	log := logger.New(config.LoggerConfig{Level: "info", Format: "json"})
+	log := logger.New(config.LoggerConfig{Level: "info", Format: "json", OutputPath: "stdout"})
 	log.Info("Starting Tenant Service", "port", servicePort)
 
 	srv := &Server{

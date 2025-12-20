@@ -303,4 +303,5 @@ consumers:
 jwt_secrets:
   - consumer: linkflow-internal
     key: linkflow-jwt-key
-    algorithm: RS256
+    secret: linkflow-dev-secret-key-change-in-production-min-32-chars
+    algorithm: HS256

@@ -53,8 +53,8 @@ func New(cfg config.LoggerConfig) Logger {
 		zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
 
-	// Set output paths
-	if cfg.OutputPath == "stdout" {
+	// Set output paths (default to stdout if not specified)
+	if cfg.OutputPath == "" || cfg.OutputPath == "stdout" {
 		zapConfig.OutputPaths = []string{"stdout"}
 	} else {
 		zapConfig.OutputPaths = []string{cfg.OutputPath}
